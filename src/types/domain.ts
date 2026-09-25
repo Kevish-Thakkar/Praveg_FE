@@ -1,12 +1,30 @@
 /**
- * Domain model for the Praveg Operations Management Platform.
- * Derived from the proposal (sections 3, 6.1 – 6.10) and the user workflow diagram (p.24).
+ * Domain model for the Praveg Operations Management Platform (v2: 1 project = 1 job).
+ * Derived from the proposal, the client's v2 feedback and docs/ASSUMPTIONS.md (D-1 … D-9).
  * All IDs are strings so the model maps 1:1 to future REST resources.
+ *
+ * NOTE: reconstructed on 2026-09-25 from how services, seed data and screens use these types
+ * (the previous file was lost). Review optionality and union members before a backend contract relies on it.
  */
 
 export type ID = string;
 export type ISODate = string; // yyyy-mm-dd
 export type ISODateTime = string;
+
+/* ───────────── Geography ───────────── */
+
+/** D-8: India and the UAE only. */
+export type Country = "India" | "United Arab Emirates";
+
+/** Geocoded address (mock geocoding in the prototype; Google Places in production — A-5). */
+export interface Address {
+  line: string;
+  city: string;
+  state: string;
+  country: Country;
+  lat: number;
+  lng: number;
+}
 
 /* ───────────── Access ───────────── */
 
@@ -37,7 +55,7 @@ export interface Organization {
   name: string;
   code: string;
   emailDomain: string;
-  country: string;
+  country: Country;
   city: string;
   status: "Active" | "Inactive";
 }
@@ -51,6 +69,7 @@ export interface Currency {
 
 export type InspectionCategory = "Inspection" | "Testing";
 
+/** A service the client can ask for ("Services" in Settings). */
 export interface ProjectType {
   id: ID;
   name: string;
@@ -75,22 +94,21 @@ export interface Client {
   currency: string;
   mobile: string;
   email: string;
-  address: string;
-  city: string;
-  country: string;
+  address: Address;
+  /** due date = invoice date + payment terms (A-13) */
+  paymentTermsDays: number;
   contacts: ClientContact[];
   createdAt: ISODateTime;
 }
 
+/** A-2: each vendor belongs to one client. */
 export interface Vendor {
   id: ID;
+  clientId: ID;
   name: string;
-  organizationId: ID;
   mobile: string;
   email: string;
-  address: string;
-  city: string;
-  country: string;
+  address: Address;
   createdAt: ISODateTime;
 }
 
@@ -104,117 +122,153 @@ export interface Inspector {
   email: string;
   phone: string;
   nationality: string;
-  country: string;
-  city: string;
+  address: Address;
   currency: string;
   manDayRate: number;
   lumpSumRate: number;
   hourlyRate: number;
   roundTrip: number;
   engagementType: EngagementType;
-  disciplines: string[];
+  /** D-5: "Disciplines" renamed to Skills */
+  skills: string[];
   qualifications: string[];
   status: InspectorStatus;
   createdAt: ISODateTime;
 }
 
-/* ───────────── Projects & inspections ───────────── */
+/* ───────────── Projects (1 project = 1 job) ───────────── */
 
-/** Derived — never stored. See lib/workflow.ts → deriveProjectStage */
+/** D-2: six stages, plus Cancelled. See lib/workflow.ts → STAGES */
 export type ProjectStage =
-  | "Enquiry"
-  | "Quotation"
-  | "Proposal"
-  | "Confirmed"
+  | "Inquiry"
+  | "Inspector Assigned"
+  | "CVs Sent"
+  | "Inspector Confirmed"
+  | "Job Scheduled"
   | "Completed"
-  | "Lost";
+  | "Cancelled";
+
+export type RateBasis = "Man-Day" | "Lump Sum" | "Hourly";
+
+/** D-4: the client price is set per job by Super Admin / Accountant. */
+export interface ClientPricing {
+  rateBasis: RateBasis;
+  /** days or hours depending on basis (ignored for lump sum) */
+  units: number;
+  clientRate: number;
+  currency: string;
+  notes: string;
+  setById: ID;
+  setAt: ISODateTime;
+}
+
+export type SelectionMode = "Direct" | "Interview";
+export type InterviewResult = "Pending" | "Passed" | "Failed";
+
+/** A-9: client decision — direct selection or interview first. */
+export interface Selection {
+  mode: SelectionMode;
+  selectedCandidateId: ID | null;
+  interviewAt: ISODateTime | null;
+  interviewResult: InterviewResult | null;
+}
+
+export interface Schedule {
+  dates: ISODate[];
+  remindersSent: ISODateTime[];
+}
+
+export interface Completion {
+  jobDoneAt: ISODateTime | null;
+  reportUploadedAt: ISODateTime | null;
+  completionEmailSentAt: ISODateTime | null;
+}
+
+export type BillingStatus =
+  | "Not Billable"
+  | "Invoice Pending"
+  | "Awaiting Payment"
+  | "Paid";
+
+/** A-12: invoices are created in the accounting system and uploaded with these fields. */
+export interface InvoiceDetails {
+  number: string;
+  date: ISODate;
+  jobName: string;
+  amount: number;
+  taxAmount: number;
+  total: number;
+  currency: string;
+  dueDate: ISODate;
+  documentId: ID | null;
+  notes: string;
+  enteredById: ID;
+}
+
+export type PaymentMethod = "Bank Transfer" | "Cheque" | "UPI" | "Wire (SWIFT)";
+
+export interface PaymentDetails {
+  amount: number;
+  date: ISODate;
+  method: PaymentMethod;
+  reference: string;
+  recordedById: ID;
+}
+
+export interface PaymentReminderLog {
+  at: ISODateTime;
+  kind: "Reminder" | "Follow-up";
+}
+
+export interface Billing {
+  status: BillingStatus;
+  invoice: InvoiceDetails | null;
+  payment: PaymentDetails | null;
+  reminders: PaymentReminderLog[];
+}
 
 export interface Project {
   id: ID;
   code: string;
-  name: string;
+  title: string;
   clientId: ID;
-  projectTypeId: ID;
+  vendorId: ID | null;
+  /** → ProjectType */
+  serviceId: ID;
   organizationId: ID;
   coordinatorId: ID;
-  vendorIds: ID[];
+  requiredSkills: string[];
+  /** job site — defaults to the vendor / client address (A-6) */
+  site: Address;
   description: string;
-  startDate: ISODate;
-  endDate: ISODate | null;
+  requiredBy: ISODate;
+  stage: ProjectStage;
+  stageChangedAt: ISODateTime;
+  pricing: ClientPricing | null;
+  pricingRequestedAt: ISODateTime | null;
+  selection: Selection | null;
+  assignedInspectorId: ID | null;
+  schedule: Schedule | null;
+  completion: Completion;
+  billing: Billing;
+  cancelledReason: string | null;
   createdAt: ISODateTime;
 }
 
-export interface Position {
+export type CandidateAvailability = "Requested" | "Available" | "Not Available";
+export type CandidateOutcome = "Selected" | "Not Selected";
+
+/** An inspector asked for availability on a project ("Requests & CVs" — D-7). */
+export interface Candidate {
   id: ID;
   projectId: ID;
-  code: string;
-  title: string;
-  description: string;
-  quantity: number;
-  unit: string;
-}
-
-export type InspectionStatus =
-  | "Draft" // created, requirements captured
-  | "Quotation" // inspectors shortlisted / quotations being collected
-  | "Proposal" // quotations sent to client, awaiting decision
-  | "Won" // client selected main inspector
-  | "Lost"
-  | "Completed"; // all visits done
-
-export type RateBasis = "Man-Day" | "Lump Sum" | "Hourly";
-
-/** "Inspection Questionnaire" in the workflow diagram — fields to be confirmed with client */
-export interface InspectionRequirements {
-  discipline: string;
-  rateBasis: RateBasis;
-  estimatedUnits: number; // days or hours depending on basis (1 for lump sum)
-  notes: string;
-}
-
-export interface Inspection {
-  id: ID;
-  code: string;
-  projectId: ID;
-  positionId: ID | null;
-  category: InspectionCategory;
-  description: string;
-  country: string;
-  city: string;
-  vendorId: ID;
-  inspectionDates: ISODate[];
-  status: InspectionStatus;
-  requirements: InspectionRequirements;
-  mainInspectorId: ID | null;
-  backupInspectorId: ID | null;
-  lostReason: string | null;
-  createdAt: ISODateTime;
-}
-
-export type QuotationStatus =
-  | "Requested" // asked inspector for quote
-  | "Received" // inspector quote received, client price prepared
-  | "Sent" // sent to client
-  | "Selected" // chosen by client (main)
-  | "Backup"
-  | "Not Selected";
-
-export interface Quotation {
-  id: ID;
-  code: string;
-  inspectionId: ID;
   inspectorId: ID;
-  rateBasis: RateBasis;
-  units: number;
-  currency: string;
-  inspectorRate: number; // cost per unit quoted by inspector
-  clientRate: number; // price per unit quoted to client
-  roundTrip: number;
-  includeCv: boolean;
-  status: QuotationStatus;
-  notes: string;
-  sentAt: ISODateTime | null;
-  createdAt: ISODateTime;
+  distanceKm: number;
+  availability: CandidateAvailability;
+  requestedAt: ISODateTime;
+  respondedAt: ISODateTime | null;
+  cvSentAt: ISODateTime | null;
+  outcome: CandidateOutcome | null;
 }
 
 /* ───────────── Execution ───────────── */
@@ -224,7 +278,6 @@ export type POStatus = "Awaiting PO" | "Received" | "Invoiced" | "Closed";
 export interface PurchaseOrder {
   id: ID;
   poNumber: string;
-  inspectionId: ID;
   projectId: ID;
   clientId: ID;
   amount: number;
@@ -239,7 +292,7 @@ export type VisitStatus = "Upcoming" | "Completed" | "Cancelled";
 
 export interface Visit {
   id: ID;
-  inspectionId: ID;
+  projectId: ID;
   inspectorId: ID;
   type: VisitType;
   date: ISODate;
@@ -250,19 +303,14 @@ export interface Visit {
   completedAt: ISODateTime | null;
 }
 
-export type ReminderType =
-  | "Inspector"
-  | "Inspection"
-  | "Inspection Date"
-  | "Repair Visit"
-  | "Follow-up Visit";
+export type ReminderType = "Inspector" | "Job" | "Job Date" | "Report" | "Payment";
 export type ReminderStatus = "Open" | "Done";
 
 export interface Reminder {
   id: ID;
   type: ReminderType;
   title: string;
-  inspectionId: ID | null;
+  projectId: ID | null;
   inspectorId: ID | null;
   dueDate: ISODate;
   assigneeId: ID;
@@ -285,6 +333,8 @@ export interface AppNotification {
   body: string;
   link: string | null;
   read: boolean;
+  /** roles that see it; empty = everyone (Super Admin always sees all) */
+  roles: Role[];
   createdAt: ISODateTime;
 }
 
@@ -296,17 +346,13 @@ export type DocumentCategory =
   | "Inspector Confirmation"
   | "Technical Document"
   | "Report"
-  | "Template"
-  | "Purchase Order"
   | "Out Document"
+  | "Purchase Order"
+  | "Invoice"
+  | "Template"
   | "Other";
 
-export type DocumentEntity =
-  | "Project"
-  | "Inspection"
-  | "Inspector"
-  | "Client"
-  | "Library";
+export type DocumentEntity = "Project" | "Inspector" | "Client" | "Library";
 export type DocumentAccess = "Internal" | "Restricted";
 
 export interface DocumentFile {
@@ -315,8 +361,6 @@ export interface DocumentFile {
   category: DocumentCategory;
   entityType: DocumentEntity;
   entityId: ID;
-  /** set for Out Documents: the won inspection date the report belongs to */
-  inspectionDate: ISODate | null;
   sizeKb: number;
   mimeType: string;
   access: DocumentAccess;
@@ -325,19 +369,22 @@ export interface DocumentFile {
 }
 
 export type EmailKind =
-  | "Quotation"
+  | "Availability Request"
+  | "CVs to Client"
+  | "Interview"
   | "Inspector Confirmation"
-  | "Out Document"
-  | "Reminder"
+  | "Job Reminder"
+  | "Report Request"
+  | "Completion"
+  | "Payment Reminder"
+  | "Payment Follow-up"
   | "General";
-export type EmailStatus = "Sent" | "Failed";
+export type EmailStatus = "Scheduled" | "Sent" | "Failed";
 
 export interface EmailRecord {
   id: ID;
   kind: EmailKind;
-  inspectionId: ID | null;
   projectId: ID | null;
-  inspectionDate: ISODate | null;
   subject: string;
   to: string[];
   cc: string[];
@@ -345,9 +392,13 @@ export interface EmailRecord {
   body: string;
   attachmentIds: ID[];
   templateId: ID | null;
+  /** "system" for automatic emails */
   sentById: ID;
+  /** for Scheduled emails: when it will be sent */
   sentAt: ISODateTime;
   status: EmailStatus;
+  /** A-10: queued by the scheduler rather than sent by a user */
+  automatic: boolean;
 }
 
 export interface EmailTemplate {
@@ -359,48 +410,12 @@ export interface EmailTemplate {
   updatedAt: ISODateTime;
 }
 
-/* ───────────── Finance (diagram-only stages are marked "to be confirmed" in UI) ───────────── */
-
-export type InvoiceKind = "Pre-Invoice" | "Invoice";
-export type InvoiceStatus =
-  | "Draft"
-  | "Issued"
-  | "Partially Paid"
-  | "Paid"
-  | "Cancelled";
-
-export interface Invoice {
-  id: ID;
-  number: string;
-  kind: InvoiceKind;
-  clientId: ID;
-  projectId: ID;
-  poId: ID | null;
-  visitIds: ID[];
-  currency: string;
-  subtotal: number;
-  gstApplicable: boolean;
-  gstRate: number;
-  issueDate: ISODate;
-  dueDate: ISODate;
-  status: InvoiceStatus;
-  convertedFromId: ID | null;
-}
-
-export interface Payment {
-  id: ID;
-  invoiceId: ID;
-  amount: number;
-  date: ISODate;
-  method: "Bank Transfer" | "Cheque" | "UPI" | "Wire (SWIFT)";
-  reference: string;
-}
+/* ───────────── Operations & time (diagram-only — A-19) ───────────── */
 
 export interface TimeEntry {
   id: ID;
   inspectorId: ID;
-  inspectionId: ID;
-  visitId: ID | null;
+  projectId: ID;
   date: ISODate;
   hours: number;
   expenseCategory: "Travel" | "Accommodation" | "Per Diem" | "Other" | null;
@@ -414,16 +429,15 @@ export interface TimeEntry {
 
 export type ActivityEntity =
   | "Project"
-  | "Inspection"
-  | "Quotation"
+  | "Candidate"
   | "Purchase Order"
   | "Visit"
   | "Document"
   | "Email"
+  | "Billing"
   | "Client"
   | "Vendor"
   | "Inspector"
-  | "Invoice"
   | "User"
   | "Settings";
 
@@ -446,7 +460,7 @@ export type ConnectionState =
   | "Connection Failed";
 
 export interface Integration {
-  id: "smtp" | "storage" | "otp";
+  id: "smtp" | "maps" | "storage" | "otp";
   name: string;
   description: string;
   state: ConnectionState;
