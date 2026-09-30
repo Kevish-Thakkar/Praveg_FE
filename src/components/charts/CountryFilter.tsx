@@ -31,7 +31,7 @@ export function CountryFilter({ value, onChange, className }: { value: Country; 
             onClick={() => onChange(o.value)}
             className={cn(
               "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-              active ? "bg-gradient-to-r from-[#07a3e7] to-[#1e56c8] text-white" : "text-muted-foreground hover:text-foreground",
+              active ? "bg-primary-dark text-white" : "text-muted-foreground hover:text-foreground",
             )}
           >
             <Flag country={o.value} />

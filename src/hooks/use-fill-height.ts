@@ -17,7 +17,10 @@ export function useFillHeight<T extends HTMLElement>(gap = 28, minWidth = 1024) 
   const ref = useCallback((el: T | null) => { node.current = el; measure() }, [measure])
   useEffect(() => {
     window.addEventListener("resize", measure)
-    return () => window.removeEventListener("resize", measure)
+    // content above the element can change height (filter chips, banners) — re-measure when the page reflows
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => measure()) : null
+    ro?.observe(document.body)
+    return () => { window.removeEventListener("resize", measure); ro?.disconnect() }
   }, [measure])
   return [ref, height] as const
 }

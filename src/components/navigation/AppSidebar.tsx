@@ -4,7 +4,7 @@ import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
   SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail, useSidebar,
 } from "@/components/ui/sidebar"
-import { NAV } from "@/constants/navigation"
+import { NAV, NAV_FOOTER, type NavItem } from "@/constants/navigation"
 import { BrandLogo } from "@/components/common/BrandLogo"
 import { can } from "@/constants/permissions"
 import { useRole } from "@/store/session.store"
@@ -36,48 +36,53 @@ export const AppSidebar = memo(function AppSidebar() {
           <span className="sr-only">Praveg Certification Services — Operations</span>
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="gap-1 py-2">
         {NAV.map((group) => {
           const items = group.items.filter((i) => can(role, i.module))
           if (!items.length) return null
           return (
-            <SidebarGroup key={group.label}>
-              <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroup key={group.label} className="py-1.5">
+              <SidebarGroupLabel className="text-[11px] font-semibold tracking-[0.06em] text-muted-foreground/80 uppercase">{group.label}</SidebarGroupLabel>
               <SidebarGroupContent>
-                <SidebarMenu>
-                  {items.map((item) => {
-                    const active = pathname === item.to || pathname.startsWith(`${item.to}/`)
-                    return (
-                      <SidebarMenuItem key={item.to}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={active}
-                          tooltip={item.label}
-                          className="data-[active=true]:bg-sidebar-accent data-[active=true]:font-semibold data-[active=true]:text-sidebar-accent-foreground"
-                        >
-                          <NavLink to={item.to} onClick={() => isMobile && setOpenMobile(false)} className="text-sidebar-foreground">
-                            <item.icon className={active ? "text-primary" : "text-muted-foreground"} />
-                            <span>{item.label}</span>
-                          </NavLink>
-                        </SidebarMenuButton>
-                        {item.to === "/reminders" && dueCount > 0 && (
-                          <SidebarMenuBadge className="rounded-full bg-danger-soft px-1.5 text-danger" aria-label={`${dueCount} due`}>
-                            {dueCount}
-                          </SidebarMenuBadge>
-                        )}
-                      </SidebarMenuItem>
-                    )
-                  })}
+                <SidebarMenu className="gap-0.5">
+                  {items.map((item) => <NavEntry key={item.to} item={item} pathname={pathname} badge={item.to === "/reminders" ? dueCount : 0} onNavigate={() => isMobile && setOpenMobile(false)} />)}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
           )
         })}
       </SidebarContent>
-      <SidebarFooter className="border-t group-data-[collapsible=icon]:hidden">
-        <p className="px-2 py-1 text-xs text-muted-foreground">Prototype · mock data · v0.1</p>
+      <SidebarFooter className="border-t py-3">
+        <SidebarMenu>
+          {NAV_FOOTER.filter((i) => can(role, i.module)).map((item) => <NavEntry key={item.to} item={item} pathname={pathname} onNavigate={() => isMobile && setOpenMobile(false)} />)}
+        </SidebarMenu>
+        <p className="px-2 pt-1 text-[11px] text-muted-foreground group-data-[collapsible=icon]:hidden">Prototype · mock data</p>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )
 })
+
+function NavEntry({ item, pathname, badge = 0, onNavigate }: { item: NavItem; pathname: string; badge?: number; onNavigate: () => void }) {
+  const active = pathname === item.to || pathname.startsWith(`${item.to}/`)
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        asChild
+        isActive={active}
+        tooltip={item.label}
+        className="h-10 rounded-md text-[14px] data-[active=true]:bg-primary-light data-[active=true]:font-semibold data-[active=true]:text-primary-dark"
+      >
+        <NavLink to={item.to} onClick={onNavigate} className="text-sidebar-foreground">
+          <item.icon className={active ? "text-primary-dark" : "text-muted-foreground"} />
+          <span>{item.label}</span>
+        </NavLink>
+      </SidebarMenuButton>
+      {badge > 0 && (
+        <SidebarMenuBadge className="!top-1/2 right-2 h-5 min-w-5 !-translate-y-1/2 rounded bg-danger-soft px-1.5 text-danger" aria-label={`${badge} due`}>
+          {badge}
+        </SidebarMenuBadge>
+      )}
+    </SidebarMenuItem>
+  )
+}

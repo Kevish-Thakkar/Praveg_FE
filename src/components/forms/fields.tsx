@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react"
 import type { Control, FieldPath, FieldValues } from "react-hook-form"
 import { format, parseISO } from "date-fns"
-import { CalendarIcon, Check, ChevronsUpDown, Plus, X } from "lucide-react"
+import { Check, ChevronsUpDown, Plus, X } from "lucide-react"
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { toISODate } from "@/lib/dates"
 import { cn } from "@/lib/utils"
+import { DatePicker, DateTrigger } from "./DatePicker"
 
 export interface Option {
   value: string
@@ -395,36 +396,17 @@ export function CreatableMultiSelectField<T extends FieldValues>({ control, name
   )
 }
 
-export function DateField<T extends FieldValues>({ control, name, label, required, description, className, disabled }: BaseProps<T>) {
-  const [open, setOpen] = useState(false)
+export function DateField<T extends FieldValues>({ control, name, label, required, description, className, disabled, min }: BaseProps<T> & { min?: string }) {
   return (
     <FormField
       control={control}
       name={name}
-      render={({ field }) => (
+      render={({ field, fieldState }) => (
         <FormItem className={cn("flex flex-col", className)}>
           <FieldLabel label={label} required={required} />
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <FormControl>
-                <Button variant="outline" disabled={disabled} className={cn("w-full justify-start font-normal", !field.value && "text-muted-foreground")}>
-                  <CalendarIcon className="text-muted-foreground" />
-                  {field.value ? format(parseISO(field.value), "dd MMM yyyy") : "Pick a date"}
-                </Button>
-              </FormControl>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={field.value ? parseISO(field.value) : undefined}
-                defaultMonth={field.value ? parseISO(field.value) : undefined}
-                onSelect={(d) => {
-                  field.onChange(d ? toISODate(d) : null)
-                  setOpen(false)
-                }}
-              />
-            </PopoverContent>
-          </Popover>
+          <FormControl>
+            <DatePicker value={field.value} onChange={field.onChange} min={min} disabled={disabled} invalid={!!fieldState.error} />
+          </FormControl>
           {description && <FormDescription>{description}</FormDescription>}
           <FormMessage />
         </FormItem>
@@ -447,10 +429,9 @@ export function MultiDateField<T extends FieldValues>({ control, name, label, re
             <Popover>
               <PopoverTrigger asChild>
                 <FormControl>
-                  <Button variant="outline" disabled={disabled} className={cn("w-full justify-start font-normal", !value.length && "text-muted-foreground")}>
-                    <CalendarIcon className="text-muted-foreground" />
+                  <DateTrigger disabled={disabled} placeholder={!value.length}>
                     {value.length ? `${value.length} date${value.length === 1 ? "" : "s"} selected` : "Pick one or more dates"}
-                  </Button>
+                  </DateTrigger>
                 </FormControl>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -500,6 +481,19 @@ export function SwitchField<T extends FieldValues>({ control, name, label, descr
         </FormItem>
       )}
     />
+  )
+}
+
+/** Compact titled group inside a form: small uppercase heading, optional hint, fields below. */
+export function FormSection({ title, hint, children, className }: { title: string; hint?: string; children: ReactNode; className?: string }) {
+  return (
+    <fieldset className={cn("space-y-3", className)}>
+      <legend className="mb-3 flex w-full items-baseline justify-between gap-3 border-b pb-1.5">
+        <span className="text-xs font-semibold tracking-[0.04em] text-primary-dark uppercase">{title}</span>
+        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+      </legend>
+      {children}
+    </fieldset>
   )
 }
 

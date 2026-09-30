@@ -3,7 +3,7 @@ import { useWatch, type Control, type FieldValues, type Path, type UseFormSetVal
 import { z } from "zod"
 import { ExternalLink, MapPin } from "lucide-react"
 import { CITY_COORDS, COUNTRIES, STATES, formatAddress, geocode, mapEmbedUrl } from "@/constants/geo"
-import { ComboboxCreatableField, FormGrid, SelectField, TextareaField } from "./fields"
+import { ComboboxCreatableField, FormGrid, SelectField, TextField, TextareaField } from "./fields"
 import type { Address, Country } from "@/types/domain"
 import { cn } from "@/lib/utils"
 
@@ -26,13 +26,15 @@ interface Props<T extends FieldValues> {
   name: Path<T>
   lineLabel?: string
   showMap?: boolean
+  /** dense layout for drawers and dialogs: one-line address, country/state/city in one row, small map below */
+  compact?: boolean
 }
 
 /**
  * Address block: line, country, state (by country), city (known cities + free text) and a Google Maps preview.
  * Prototype geocoding is approximate (city centre); production uses Google Places Autocomplete.
  */
-export function AddressFields<T extends FieldValues>({ control, setValue, name, lineLabel = "Address", showMap = true }: Props<T>) {
+export function AddressFields<T extends FieldValues>({ control, setValue, name, lineLabel = "Address", showMap = true, compact = false }: Props<T>) {
   const p = (k: keyof Address) => `${name}.${k}` as Path<T>
   const value = useWatch({ control, name }) as Address | undefined
   const country = value?.country ?? "India"
@@ -71,6 +73,19 @@ export function AddressFields<T extends FieldValues>({ control, setValue, name, 
       </FormGrid>
     </div>
   )
+  if (compact) {
+    return (
+      <div className="space-y-3">
+        <TextField control={control} name={p("line")} label={lineLabel} required placeholder="Plot / building, street, area" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <SelectField control={control} name={p("country")} label="Country" required options={COUNTRIES} onValueChange={(v) => onCountryChange(v as Country)} />
+          <SelectField control={control} name={p("state")} label={country === "India" ? "State" : "Emirate"} required options={STATES[country]} onValueChange={() => setValue(p("city"), "" as never)} />
+          <ComboboxCreatableField control={control} name={p("city")} label="City" required options={cityOptions} placeholder="Select or type" onCreateHint="Use" />
+        </div>
+        {showMap && <MapPreview address={value} height="h-28" />}
+      </div>
+    )
+  }
   if (!showMap) return fields
   // Map sits to the right of the fields whenever the container is wide enough; stacks below on narrow screens.
   return (

@@ -14,7 +14,7 @@ export function recordEmail(draft: EmailDraft, notifyRoles: Role[] = []): EmailR
   const rec: EmailRecord = { ...draft, id: newId("eml"), sentById: currentUserId(), sentAt: new Date().toISOString(), status: "Sent", automatic: false }
   db.emails.unshift(rec)
   if (notifyRoles.length) {
-    db.notifications.unshift({ id: newId("ntf"), kind: "Email", title: `Email sent — ${draft.subject.slice(0, 60)}`, body: `To ${draft.to.join(", ")}`, link: draft.projectId ? `/projects/${draft.projectId}` : "/emails", read: false, roles: notifyRoles, createdAt: rec.sentAt })
+    db.notifications.unshift({ id: newId("ntf"), kind: "Email", title: `Email sent — ${draft.subject.slice(0, 60)}`, body: `To ${draft.to.join(", ")}`, link: draft.projectId ? `/projects/${draft.projectId}?tab=emails` : null, read: false, roles: notifyRoles, createdAt: rec.sentAt })
   }
   logActivity("Email", rec.id, draft.projectId, `Sent email "${draft.subject}"`)
   return rec

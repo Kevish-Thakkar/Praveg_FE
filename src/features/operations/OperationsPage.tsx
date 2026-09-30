@@ -59,7 +59,7 @@ export function OperationsPage() {
       </section>
       <Card className="gap-0 overflow-hidden py-0">
         {q.isError ? <ErrorState message={q.error.message} onRetry={() => void q.refetch()} /> : (
-          <DataTable rows={rows} columns={columns} getRowId={(t) => t.id} loading={q.isPending} initialSort={{ id: "date", dir: "desc" }} caption="Time and expense entries"
+          <DataTable fill rows={rows} columns={columns} getRowId={(t) => t.id} loading={q.isPending} initialSort={{ id: "date", dir: "desc" }} caption="Time and expense entries"
             empty={<EmptyState icon={Clock3} title="No time entries yet" action={canCreate && <Button onClick={() => setAdding(true)}><Plus /> Log time & expense</Button>} />} />
         )}
       </Card>

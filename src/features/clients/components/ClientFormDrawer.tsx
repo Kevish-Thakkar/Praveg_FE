@@ -4,9 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Form } from "@/components/ui/form"
-import { Separator } from "@/components/ui/separator"
 import { DetailDrawer } from "@/components/dialogs/DetailDrawer"
-import { ComboboxField, FormGrid, NumberField, SelectField, TextField } from "@/components/forms/fields"
+import { ComboboxField, FormGrid, FormSection, NumberField, SelectField, TextField } from "@/components/forms/fields"
 import { AddressFields, addressSchema, emptyAddress } from "@/components/forms/address"
 import { Spinner } from "@/components/feedback/LoadingState"
 import { useLookupOptions } from "@/features/settings/lookups"
@@ -64,22 +63,29 @@ export function ClientFormDrawer({ open, onOpenChange, saving, initial, onSubmit
     <DetailDrawer
       open={open}
       onOpenChange={(o) => !saving && onOpenChange(o)}
-      size="xl"
+      size="lg"
       title={initial ? `Edit ${initial.name}` : "Add client"}
       description="Clients own projects and vendors. Add contacts after saving."
       footer={<Footer formId="client-form" saving={saving} editing={!!initial} noun="client" onCancel={() => onOpenChange(false)} />}
     >
       <Form {...form}>
-        <form id="client-form" noValidate className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-          <TextField control={form.control} name="name" label="Client name" required />
-          <FormGrid>
-            <TextField control={form.control} name="email" label="Email" required type="email" />
-            <TextField control={form.control} name="mobile" label="Mobile number" type="tel" autoComplete="tel" />
-            <SelectField control={form.control} name="currency" label="Billing currency" required options={currencyOptions} />
-            <NumberField control={form.control} name="paymentTermsDays" label="Payment terms (days)" required step="1" description="Payment due date = invoice date + these days" />
-          </FormGrid>
-          <Separator />
-          <AddressFields control={form.control} setValue={form.setValue} name="address" />
+        <form id="client-form" noValidate className="space-y-5" onSubmit={form.handleSubmit(onSubmit)}>
+          <FormSection title="Company">
+            <TextField control={form.control} name="name" label="Client name" required />
+            <FormGrid className="gap-3">
+              <TextField control={form.control} name="email" label="Email" required type="email" />
+              <TextField control={form.control} name="mobile" label="Mobile number" type="tel" autoComplete="tel" />
+            </FormGrid>
+          </FormSection>
+          <FormSection title="Billing" hint="Payment due date = invoice date + payment terms">
+            <FormGrid className="gap-3">
+              <SelectField control={form.control} name="currency" label="Billing currency" required options={currencyOptions} />
+              <NumberField control={form.control} name="paymentTermsDays" label="Payment terms (days)" required step="1" />
+            </FormGrid>
+          </FormSection>
+          <FormSection title="Address">
+            <AddressFields control={form.control} setValue={form.setValue} name="address" compact />
+          </FormSection>
         </form>
       </Form>
     </DetailDrawer>
@@ -101,21 +107,24 @@ export function VendorFormDrawer({ open, onOpenChange, saving, initial, defaultC
     <DetailDrawer
       open={open}
       onOpenChange={(o) => !saving && onOpenChange(o)}
-      size="xl"
+      size="lg"
       title={initial ? `Edit ${initial.name}` : "Add vendor"}
       description="A vendor is the client's supplier / manufacturer where the inspection takes place."
       footer={<Footer formId="vendor-form" saving={saving} editing={!!initial} noun="vendor" onCancel={() => onOpenChange(false)} />}
     >
       <Form {...form}>
-        <form id="vendor-form" noValidate className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-          <ComboboxField control={form.control} name="clientId" label="Client" required options={clientOptions} searchPlaceholder="Search clients…" disabled={!!defaultClientId && !initial} />
-          <TextField control={form.control} name="name" label="Vendor name" required />
-          <FormGrid>
-            <TextField control={form.control} name="email" label="Email" required type="email" />
-            <TextField control={form.control} name="mobile" label="Mobile number" type="tel" autoComplete="tel" />
-          </FormGrid>
-          <Separator />
-          <AddressFields control={form.control} setValue={form.setValue} name="address" />
+        <form id="vendor-form" noValidate className="space-y-5" onSubmit={form.handleSubmit(onSubmit)}>
+          <FormSection title="Vendor">
+            <FormGrid className="gap-3">
+              <ComboboxField control={form.control} name="clientId" label="Client" required options={clientOptions} searchPlaceholder="Search clients…" disabled={!!defaultClientId && !initial} />
+              <TextField control={form.control} name="name" label="Vendor name" required />
+              <TextField control={form.control} name="email" label="Email" required type="email" />
+              <TextField control={form.control} name="mobile" label="Mobile number" type="tel" autoComplete="tel" />
+            </FormGrid>
+          </FormSection>
+          <FormSection title="Address" hint="Used as the default job site for projects at this vendor">
+            <AddressFields control={form.control} setValue={form.setValue} name="address" compact />
+          </FormSection>
         </form>
       </Form>
     </DetailDrawer>

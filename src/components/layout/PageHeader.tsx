@@ -28,8 +28,8 @@ export function PageHeader({ title, description, breadcrumbs, actions, backTo, m
               </Link>
             </Button>
           )}
-          <div className="min-w-0 space-y-1">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{title}</h1>
+          <div className="min-w-0 space-y-1.5">
+            <h1 className="text-[22px] leading-tight font-semibold tracking-tight text-foreground sm:text-2xl">{title}</h1>
             {description && <p className="max-w-3xl text-sm text-muted-foreground">{description}</p>}
             {meta && <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1 text-sm text-muted-foreground">{meta}</div>}
           </div>

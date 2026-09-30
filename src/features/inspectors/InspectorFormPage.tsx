@@ -1,18 +1,21 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useNavigate, useParams } from "react-router-dom"
 import { FileText } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form } from "@/components/ui/form"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { CreatableMultiSelectField, FormGrid, NumberField, SelectField, TextField } from "@/components/forms/fields"
 import { AddressFields, addressSchema, emptyAddress } from "@/components/forms/address"
 import { FileDropzone } from "@/components/forms/FileDropzone"
-import { DetailSkeleton, Spinner } from "@/components/feedback/LoadingState"
+import { DetailSkeleton } from "@/components/feedback/LoadingState"
+import { ReviewSection, StepperFooter, StepperLayout } from "@/components/forms/FormStepper"
+import { DescriptionList } from "@/components/common/DescriptionList"
+import { useFormStepper, type StepDef } from "@/hooks/use-form-stepper"
+import { formatAddress } from "@/constants/geo"
+import { formatMoney } from "@/lib/format"
 import { ErrorState } from "@/components/feedback/ErrorState"
 import { useLookupOptions } from "@/features/settings/lookups"
 import { useAddSkill } from "@/features/settings/hooks"
@@ -63,7 +66,17 @@ function InspectorForm({ initial }: { initial?: InspectorRow }) {
       ? { ...initial, qualificationsText: initial.qualifications.join(", ") }
       : ({ name: "", email: "", phone: "", nationality: "Indian", address: emptyAddress(), currency: "INR", manDayRate: undefined, lumpSumRate: undefined, hourlyRate: undefined, roundTrip: undefined, engagementType: "Freelance", skills: [], qualificationsText: "", status: "Available" } as unknown as Values),
   })
-  const currency = useWatch({ control: form.control, name: "currency" })
+  const steps = useMemo<StepDef<Values>[]>(() => [
+    { id: "profile", title: "Profile", description: "Contact details, engagement and availability.", fields: ["name", "email", "phone", "nationality", "engagementType", "status"] },
+    { id: "location", title: "Location", description: "Used to find inspectors near a job site.", fields: ["address"] },
+    { id: "skills", title: "Skills", description: "Projects match inspectors on these skills. Type to add a skill that isn't listed.", fields: ["skills", "qualificationsText"] },
+    { id: "rates", title: "Rates", description: "What Praveg pays the inspector. The price sent to the client is set per job by Accounts.", fields: ["currency", "manDayRate", "lumpSumRate", "hourlyRate", "roundTrip"] },
+    { id: "cv", title: "CV", description: initial ? "Upload a new file only to replace the current CV." : "Required. This is the CV sent to clients." },
+    { id: "review", title: "Review", description: "Check the details before saving." },
+  ], [initial])
+  const stepper = useFormStepper({ form, steps })
+  const values = useWatch({ control: form.control }) as Values
+  const currency = values.currency
   const back = initial ? `/inspectors/${initial.id}` : "/inspectors"
 
   const checkCv = () => {
@@ -71,75 +84,104 @@ function InspectorForm({ initial }: { initial?: InspectorRow }) {
     setCvError(err)
     return !err
   }
-  const onSubmit = ({ qualificationsText, ...v }: Values) => {
-    if (!checkCv()) return
-    const input = { ...v, qualifications: qualificationsText.split(",").map((s) => s.trim()).filter(Boolean) }
+  const onValid = ({ qualificationsText, ...v }: Values) => {
+    if (!checkCv()) { void stepper.goTo(steps.findIndex((s) => s.id === "cv")); return }
+    const input = { ...v, qualifications: qualificationsText.split(",").map((x) => x.trim()).filter(Boolean) }
     save.mutate({ id: initial?.id, input, cv: cv[0] ? toFileMeta(cv[0]) : null }, { onSuccess: (r) => navigate(`/inspectors/${r.id}`) })
   }
+  const goToStep = (id: string) => void stepper.goTo(steps.findIndex((x) => x.id === id))
+  const next = () => {
+    if (stepper.step.id === "cv" && !checkCv()) return
+    void stepper.next()
+  }
+  const money = (n: number | undefined) => (n === undefined || n === null || Number.isNaN(n) ? "—" : formatMoney(n, currency || "INR"))
 
   return (
-    <PageContainer className="max-w-4xl">
+    <PageContainer>
       <PageHeader
         title={initial ? `Edit ${initial.name}` : "Add inspector"}
-        description={initial ? "Update details, rates, skills or replace the CV. Certificates are managed on the profile." : "Contact details, location, rates, skills and CV. Add certificates from the profile after saving."}
+        description={initial ? "Update details, rates, skills or replace the CV. Certificates are managed on the profile." : "Add an inspector in a few short steps. Certificates can be added from the profile after saving."}
         breadcrumbs={[{ label: "Inspectors", to: "/inspectors" }, ...(initial ? [{ label: initial.name, to: back }] : []), { label: initial ? "Edit" : "New" }]}
-        backTo={{ to: back, label: "previous page" }}
       />
       <Form {...form}>
-        <form noValidate onSubmit={form.handleSubmit(onSubmit, () => checkCv())} className="space-y-6">
-          <Card>
-            <CardHeader><CardTitle>Contact</CardTitle></CardHeader>
-            <CardContent>
-              <FormGrid>
-                <TextField control={form.control} name="name" label="Full name" required />
-                <TextField control={form.control} name="email" label="Email" required type="email" />
-                <TextField control={form.control} name="phone" label="Phone" required type="tel" />
-                <TextField control={form.control} name="nationality" label="Nationality" required />
-                <SelectField control={form.control} name="engagementType" label="Engagement" required options={["Freelance", "Supplier-based", "Outsourced"]} />
-                <SelectField control={form.control} name="status" label="Availability" required options={["Available", "On Assignment", "Inactive"]} />
-              </FormGrid>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle>Location</CardTitle><CardDescription>Used to find inspectors near a job site.</CardDescription></CardHeader>
-            <CardContent><AddressFields control={form.control} setValue={form.setValue} name="address" /></CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle>Skills & qualifications</CardTitle><CardDescription>Projects match inspectors on these skills. Type to add a skill that isn't listed.</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
-              <CreatableMultiSelectField control={form.control} name="skills" label="Skills" required options={skillOptions} placeholder="Select or add skills" onCreate={(s) => addSkill.mutate(s)} />
-              <TextField control={form.control} name="qualificationsText" label="Certifications & qualifications" required placeholder="CSWIP 3.1, API 510, ASNT Level II (UT)" description="Separate with commas" />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle>Inspector rates</CardTitle><CardDescription>What Praveg pays the inspector. The price sent to the client is set per job by Accounts.</CardDescription></CardHeader>
-            <CardContent>
-              <FormGrid className="sm:grid-cols-3">
-                <SelectField control={form.control} name="currency" label="Currency" required options={currencyOptions} />
-                <NumberField control={form.control} name="manDayRate" label="Man-day rate" required prefix={currency || undefined} />
-                <NumberField control={form.control} name="lumpSumRate" label="Lump sum rate" required prefix={currency || undefined} />
-                <NumberField control={form.control} name="hourlyRate" label="Hourly rate" required prefix={currency || undefined} />
-                <NumberField control={form.control} name="roundTrip" label="Round trip" required prefix={currency || undefined} />
-              </FormGrid>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>CV{!initial && <span className="text-danger" aria-hidden> *</span>}</CardTitle>
-              <CardDescription>{initial ? "Upload a new file only to replace the current CV." : "Required. This is the CV sent to clients."}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {currentCv && cv.length === 0 && (
-                <p className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm"><FileText className="size-4 text-primary-text" aria-hidden /> Current: <span className="font-medium">{currentCv.name}</span></p>
+        <form
+          noValidate
+          className="min-w-0"
+          onSubmit={(e) => {
+            if (!stepper.isLast) { e.preventDefault(); next(); return }
+            void form.handleSubmit(onValid, () => void stepper.validateAll())(e)
+          }}
+        >
+          <StepperLayout
+            steps={stepper.steps.map((x) => (x.id === "cv" && cvError ? { ...x, status: "error" as const } : x))}
+            onStep={(i) => void stepper.goTo(i)}
+            title={stepper.step.title}
+            description={stepper.step.description}
+            footer={
+              <StepperFooter
+            isFirst={stepper.isFirst} isLast={stepper.isLast} onBack={stepper.back} onNext={next} onCancel={() => navigate(back)}
+            submitting={save.isPending} submitLabel={initial ? "Save changes" : "Add inspector"}
+          />
+            }
+          >
+              {stepper.step.id === "profile" && (
+                <FormGrid>
+                  <TextField control={form.control} name="name" label="Full name" required />
+                  <TextField control={form.control} name="email" label="Email" required type="email" />
+                  <TextField control={form.control} name="phone" label="Phone" required type="tel" />
+                  <TextField control={form.control} name="nationality" label="Nationality" required />
+                  <SelectField control={form.control} name="engagementType" label="Engagement" required options={["Freelance", "Supplier-based", "Outsourced"]} />
+                  <SelectField control={form.control} name="status" label="Availability" required options={["Available", "On Assignment", "Inactive"]} />
+                </FormGrid>
               )}
-              <FileDropzone files={cv} onChange={(f) => { setCv(f); setCvError(null) }} multiple={false} accept=".pdf,.doc,.docx" maxSizeMb={10} hint="PDF or Word · up to 10 MB" invalid={!!cvError} />
-              {cvError && <p className="text-sm text-danger" role="alert">{cvError}</p>}
-            </CardContent>
-          </Card>
-          <div className="sticky bottom-0 -mx-4 flex justify-end gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:bg-card">
-            <Button type="button" variant="outline" onClick={() => navigate(back)} disabled={save.isPending}>Cancel</Button>
-            <Button type="submit" disabled={save.isPending}>{save.isPending && <Spinner />} {initial ? "Save changes" : "Add inspector"}</Button>
-          </div>
+              {stepper.step.id === "location" && <AddressFields control={form.control} setValue={form.setValue} name="address" />}
+              {stepper.step.id === "skills" && (
+                <>
+                  <CreatableMultiSelectField control={form.control} name="skills" label="Skills" required options={skillOptions} placeholder="Select or add skills" onCreate={(x) => addSkill.mutate(x)} />
+                  <TextField control={form.control} name="qualificationsText" label="Certifications & qualifications" required placeholder="CSWIP 3.1, API 510, ASNT Level II (UT)" description="Separate with commas" />
+                </>
+              )}
+              {stepper.step.id === "rates" && (
+                <FormGrid className="sm:grid-cols-2 lg:grid-cols-3">
+                  <SelectField control={form.control} name="currency" label="Currency" required options={currencyOptions} />
+                  <NumberField control={form.control} name="manDayRate" label="Man-day rate" required prefix={currency || undefined} />
+                  <NumberField control={form.control} name="lumpSumRate" label="Lump sum rate" required prefix={currency || undefined} />
+                  <NumberField control={form.control} name="hourlyRate" label="Hourly rate" required prefix={currency || undefined} />
+                  <NumberField control={form.control} name="roundTrip" label="Round trip" required prefix={currency || undefined} />
+                </FormGrid>
+              )}
+              {stepper.step.id === "cv" && (
+                <div className="space-y-3">
+                  {currentCv && cv.length === 0 && (
+                    <p className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2.5 text-sm"><FileText className="size-4 text-primary-text" aria-hidden /> Current: <span className="font-medium">{currentCv.name}</span></p>
+                  )}
+                  <FileDropzone files={cv} onChange={(f) => { setCv(f); setCvError(null) }} multiple={false} accept=".pdf,.doc,.docx" maxSizeMb={10} hint="PDF or Word · up to 10 MB" invalid={!!cvError} />
+                  {cvError && <p className="text-sm text-danger" role="alert">{cvError}</p>}
+                </div>
+              )}
+              {stepper.step.id === "review" && (
+                <div className="grid gap-3 xl:grid-cols-2">
+                  <ReviewSection title="Profile" onEdit={() => goToStep("profile")}>
+                    <DescriptionList items={[
+                      { label: "Name", value: values.name || "—" }, { label: "Email", value: values.email || "—" },
+                      { label: "Phone", value: values.phone || "—" }, { label: "Nationality", value: values.nationality || "—" },
+                      { label: "Engagement", value: values.engagementType }, { label: "Availability", value: values.status },
+                    ]} />
+                  </ReviewSection>
+                  <ReviewSection title="Location" onEdit={() => goToStep("location")}><p className="text-sm">{values.address?.city ? formatAddress(values.address) : "—"}</p></ReviewSection>
+                  <ReviewSection title="Skills" onEdit={() => goToStep("skills")}>
+                    <DescriptionList items={[{ label: "Skills", value: values.skills?.join(", ") || "—", span: 2 }, { label: "Qualifications", value: values.qualificationsText || "—", span: 2 }]} />
+                  </ReviewSection>
+                  <ReviewSection title="Rates" onEdit={() => goToStep("rates")}>
+                    <DescriptionList columns={3} items={[
+                      { label: "Man-day", value: money(values.manDayRate) }, { label: "Lump sum", value: money(values.lumpSumRate) },
+                      { label: "Hourly", value: money(values.hourlyRate) }, { label: "Round trip", value: money(values.roundTrip) },
+                    ]} />
+                  </ReviewSection>
+                  <ReviewSection title="CV" onEdit={() => goToStep("cv")}><p className="text-sm">{cv[0]?.name ?? currentCv?.name ?? "No CV selected"}</p></ReviewSection>
+                </div>
+              )}
+          </StepperLayout>
         </form>
       </Form>
     </PageContainer>

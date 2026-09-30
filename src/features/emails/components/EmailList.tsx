@@ -75,7 +75,7 @@ function Attachments({ e, dl, compact }: { e: EmailRow; dl: ReturnType<typeof us
 }
 
 /** Sent / scheduled email log with attachment download. Opens a reader on click. */
-export function EmailList({ emails, empty, showProject = true }: { emails: EmailRow[]; empty?: ReactNode; showProject?: boolean }) {
+export function EmailList({ emails, empty, showProject = true, fill = false }: { emails: EmailRow[]; empty?: ReactNode; showProject?: boolean; fill?: boolean }) {
   const [open, setOpen] = useState<EmailRow | null>(null)
   const dl = useAttachmentDownload()
 
@@ -131,6 +131,7 @@ export function EmailList({ emails, empty, showProject = true }: { emails: Email
   return (
     <>
       <DataTable
+        fill={fill}
         rows={emails}
         columns={columns}
         getRowId={(e) => e.id}

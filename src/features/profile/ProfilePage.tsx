@@ -13,7 +13,7 @@ export function ProfilePage() {
   const orgs = useOrganizations()
   const perms = PERMISSIONS[me.role]
   return (
-    <PageContainer className="max-w-4xl">
+    <PageContainer>
       <PageHeader title="My profile" description="Your account details and what your role can access." />
       <Card>
         <CardContent className="flex flex-col gap-6 sm:flex-row sm:items-start">

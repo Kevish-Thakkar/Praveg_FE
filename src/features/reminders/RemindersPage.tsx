@@ -71,7 +71,7 @@ export function RemindersPage() {
   const total = groups.reduce((s, g) => s + g.items.length, 0)
 
   return (
-    <PageContainer className="max-w-5xl">
+    <PageContainer>
       <PageHeader title="Reminders" description="Follow-ups for inspectors, jobs, job dates, reports and payments." actions={canCreate && <Button onClick={() => setCreating(true)}><Plus /> New reminder</Button>} />
       <Card className="gap-0 overflow-hidden py-0">
         <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">

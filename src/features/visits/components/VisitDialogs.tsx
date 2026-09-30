@@ -2,12 +2,21 @@ import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Form } from "@/components/ui/form"
+import { MapPin, UserRound } from "lucide-react"
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
 import { FormDialog } from "@/components/dialogs/FormDialog"
-import { DateField, FormGrid, NumberField, SelectField, TextareaField } from "@/components/forms/fields"
+import { DateField, NumberField, TextareaField } from "@/components/forms/fields"
 import { todayISO } from "@/lib/dates"
+import { cn } from "@/lib/utils"
 import type { ProjectRow, VisitRow } from "@/services"
 import { useCompleteVisit, useScheduleVisit } from "@/features/execution/hooks"
+import { VisitDateTile, VisitTypeBadge } from "./VisitBits"
+
+const TYPES = [
+  { value: "Inspection", hint: "Another job day" },
+  { value: "Follow-up", hint: "Re-check or witness" },
+  { value: "Repair", hint: "After a defect repair" },
+] as const
 
 const scheduleSchema = z.object({
   type: z.enum(["Inspection", "Follow-up", "Repair"]),
@@ -15,6 +24,25 @@ const scheduleSchema = z.object({
   notes: z.string().max(300),
 })
 type ScheduleValues = z.infer<typeof scheduleSchema>
+
+/** Job context shown at the top of both visit dialogs. */
+function VisitContext({ date, type, code, title, inspector, location }: { date?: string; type?: string; code: string; title: string; inspector: string; location: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border bg-muted/40 p-3">
+      {date ? <VisitDateTile date={date} /> : null}
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="flex items-center gap-2 text-sm font-semibold">
+          <span className="truncate">{code} · {title}</span>
+          {type && <VisitTypeBadge type={type} />}
+        </p>
+        <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1"><UserRound className="size-3.5" aria-hidden /> {inspector}</span>
+          <span className="inline-flex items-center gap-1"><MapPin className="size-3.5" aria-hidden /> {location}</span>
+        </p>
+      </div>
+    </div>
+  )
+}
 
 export function ScheduleVisitDialog({ project, open, onOpenChange }: { project: ProjectRow; open: boolean; onOpenChange: (o: boolean) => void }) {
   const schedule = useScheduleVisit()
@@ -24,15 +52,43 @@ export function ScheduleVisitDialog({ project, open, onOpenChange }: { project: 
   }, [open, form])
 
   return (
-    <FormDialog open={open} onOpenChange={onOpenChange} title="Schedule visit" description={`${project.code} · ${project.assignedInspectorName} · ${project.site.city}`} formId="schedule-visit" submitLabel="Schedule visit" loading={schedule.isPending}>
+    <FormDialog open={open} onOpenChange={onOpenChange} title="Schedule visit" formId="schedule-visit" submitLabel="Schedule visit" loading={schedule.isPending}>
       <Form {...form}>
         <form id="schedule-visit" noValidate className="space-y-4" onSubmit={form.handleSubmit((v) => schedule.mutate({ ...v, projectId: project.id }, { onSuccess: () => onOpenChange(false) }))}>
-          <FormGrid>
-            <SelectField control={form.control} name="type" label="Visit type" required options={["Inspection", "Follow-up", "Repair"]} />
-            <DateField control={form.control} name="date" label="Visit date" required />
-          </FormGrid>
+          <VisitContext code={project.code} title={project.title} inspector={project.assignedInspectorName ?? "—"} location={`${project.site.city}, ${project.site.state}`} />
+          <FormField
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <FormItem>
+                <p className="text-sm font-medium">Visit type <span className="text-danger">*</span></p>
+                <FormControl>
+                  <div role="radiogroup" aria-label="Visit type" className="grid grid-cols-3 gap-2">
+                    {TYPES.map((t) => (
+                      <button
+                        key={t.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={field.value === t.value}
+                        onClick={() => field.onChange(t.value)}
+                        className={cn(
+                          "rounded-lg border px-3 py-2 text-left transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                          field.value === t.value ? "border-primary-strong bg-primary-light/50 ring-1 ring-primary-strong" : "hover:bg-muted/60",
+                        )}
+                      >
+                        <span className="block text-sm font-medium">{t.value}</span>
+                        <span className="block text-xs text-muted-foreground">{t.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <DateField control={form.control} name="date" label="Visit date" required />
           <TextareaField control={form.control} name="notes" label="Notes" rows={2} placeholder="Scope of this visit" />
-          <p className="text-xs text-muted-foreground">A reminder is created automatically and the visit appears on the calendar.</p>
+          <p className="text-xs text-muted-foreground">A reminder is created and the visit appears on the calendar.</p>
         </form>
       </Form>
     </FormDialog>
@@ -53,17 +109,20 @@ export function CompleteVisitDialog({ visit, onClose }: { visit: VisitRow | null
     if (visit) form.reset({ unitsSpent: 1, expenses: 0, notes: visit.notes })
   }, [visit, form])
   const future = visit && visit.date > todayISO()
+  const unit = visit?.unitLabel ?? "Days"
   return (
-    <FormDialog open={!!visit} onOpenChange={(o) => !o && onClose()} title="Complete visit" description={visit ? `${visit.type} visit · ${visit.projectCode} · ${visit.inspectorName}` : undefined} formId="complete-visit" submitLabel="Mark completed" loading={complete.isPending}>
+    <FormDialog open={!!visit} onOpenChange={(o) => !o && onClose()} title="Complete visit" formId="complete-visit" submitLabel="Mark completed" loading={complete.isPending}>
       <Form {...form}>
         <form id="complete-visit" noValidate className="space-y-4" onSubmit={form.handleSubmit((v) => visit && complete.mutate({ id: visit.id, data: v }, { onSuccess: onClose }))}>
-          {future && <p className="rounded-md bg-warning-soft px-3 py-2 text-xs text-warning">This visit is scheduled in the future. Only complete it if it has actually taken place.</p>}
-          <FormGrid>
-            <NumberField control={form.control} name="unitsSpent" label="Days / hours spent" required step="0.5" />
-            <NumberField control={form.control} name="expenses" label="Expenses" required description="Travel, stay, per diem" />
-          </FormGrid>
-          <TextareaField control={form.control} name="notes" label="Visit summary" required rows={3} />
-          <p className="text-xs text-muted-foreground">Days and expenses are recorded against the job for Accounts.</p>
+          {visit && <VisitContext date={visit.date} type={visit.type} code={visit.projectCode} title={visit.projectTitle} inspector={visit.inspectorName} location={visit.location} />}
+          {future && <p className="rounded-md bg-warning-soft px-3 py-2 text-xs text-warning">This visit is scheduled in the future. Complete it only if it has taken place.</p>}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <NumberField control={form.control} name="unitsSpent" label={`${unit} spent`} required step="0.5" />
+            <NumberField control={form.control} name="expenses" label="Expenses" required prefix={visit?.currency} />
+          </div>
+          <p className="-mt-2 text-xs text-muted-foreground">Expenses: travel, stay and per diem. Enter 0 if none.</p>
+          <TextareaField control={form.control} name="notes" label="Visit summary" required rows={3} placeholder="What was inspected, findings, anything pending" />
+          <p className="text-xs text-muted-foreground">{unit} and expenses are recorded against the job for Accounts.</p>
         </form>
       </Form>
     </FormDialog>

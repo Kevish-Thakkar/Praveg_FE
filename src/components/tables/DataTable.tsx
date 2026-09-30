@@ -1,10 +1,10 @@
 import { memo, useCallback, useMemo, useState, type ReactNode } from "react"
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { TableSkeleton } from "@/components/feedback/LoadingState"
 import { cn } from "@/lib/utils"
+import { useFillHeight } from "@/hooks/use-fill-height"
 
 export interface Column<T> {
   id: string
@@ -15,6 +15,10 @@ export interface Column<T> {
   /** hide on narrow screens — keeps key columns visible on tablet */
   hideBelow?: "sm" | "md" | "lg" | "xl" | "2xl"
   align?: "left" | "right"
+  /** plain value for CSV export (falls back to sortValue); return undefined to leave the column out */
+  exportValue?: (row: T) => string | number | null | undefined
+  /** can the user hide this column from the Columns menu (default true when it has a header) */
+  hideable?: boolean
 }
 
 interface DataTableProps<T> {
@@ -33,6 +37,13 @@ interface DataTableProps<T> {
   mobileCard?: (row: T) => ReactNode
   initialSort?: { id: string; dir: "asc" | "desc" }
   caption?: string
+  /** column ids hidden by the Columns menu */
+  hiddenColumns?: ReadonlySet<string>
+  /**
+   * Main list pages: on desktop the grid ends at the bottom of the viewport, the header stays fixed
+   * and only the rows scroll (pagination stays visible below).
+   */
+  fill?: boolean
 }
 
 const HIDE: Record<NonNullable<Column<unknown>["hideBelow"]>, string> = {
@@ -69,7 +80,7 @@ function RowInner<T>({ row, id, columns, selectable, canSelect, isSelected, onTo
         </TableCell>
       )}
       {columns.map((c) => (
-        <TableCell key={c.id} className={cn("py-3", c.hideBelow && HIDE[c.hideBelow], c.align === "right" && "text-right", c.className)}>
+        <TableCell key={c.id} className={cn(c.hideBelow && HIDE[c.hideBelow], c.align === "right" && "text-right", c.className)}>
           {c.cell(row)}
         </TableCell>
       ))}
@@ -79,9 +90,13 @@ function RowInner<T>({ row, id, columns, selectable, canSelect, isSelected, onTo
 const Row = memo(RowInner) as typeof RowInner
 
 export function DataTable<T>({
-  rows, columns, getRowId, loading, onRowClick, selectable = false, selected, onSelectedChange, isRowSelectable,
-  pageSize: initialPageSize = 10, empty, mobileCard, initialSort, caption,
+  rows, columns: allColumns, getRowId, loading, onRowClick, selectable = false, selected, onSelectedChange, isRowSelectable,
+  pageSize: initialPageSize = 10, empty, mobileCard, initialSort, caption, hiddenColumns, fill = false,
 }: DataTableProps<T>) {
+  // reserve room for the pagination bar (~69px) + the page's bottom padding
+  const [fillRef, fillHeight] = useFillHeight<HTMLDivElement>(100)
+  const visibleColumns = useMemo(() => (hiddenColumns?.size ? allColumns.filter((c) => !hiddenColumns.has(c.id)) : allColumns), [allColumns, hiddenColumns])
+  const columns = visibleColumns
   const [sort, setSort] = useState(initialSort ?? null)
   const [pageSize, setPageSizeState] = useState(initialPageSize)
   // Page resets to the first page whenever the row count changes (new filter/search) — derived, no effect.
@@ -137,28 +152,32 @@ export function DataTable<T>({
   return (
     <div>
       {mobileCard && (
-        <ul className="divide-y md:hidden">
+        <ul className="divide-y divide-border/70 md:hidden">
           {pageRows.map((r) => (
             <li key={getRowId(r)}>
               {onRowClick ? (
-                <button type="button" onClick={() => onRowClick(r)} className="block w-full px-4 py-3 text-left hover:bg-muted focus-visible:bg-muted focus-visible:outline-none">
+                <button type="button" onClick={() => onRowClick(r)} className="block w-full px-4 py-4 text-left hover:bg-primary-light/40 focus-visible:bg-muted focus-visible:outline-none">
                   {mobileCard(r)}
                 </button>
               ) : (
-                <div className="px-4 py-3">{mobileCard(r)}</div>
+                <div className="px-4 py-4">{mobileCard(r)}</div>
               )}
             </li>
           ))}
         </ul>
       )}
       <div className={cn(mobileCard && "hidden md:block")}>
-        <Table>
+        <Table
+          containerRef={fill ? fillRef : undefined}
+          containerStyle={fill && fillHeight ? { maxHeight: fillHeight } : undefined}
+          containerClassName={fill ? "overflow-y-auto" : undefined}
+        >
           {caption && <caption className="sr-only">{caption}</caption>}
-          <TableHeader className="bg-muted/60">
+          <TableHeader className={cn("bg-primary-dark [&_tr]:border-primary-dark", fill && "sticky top-0 z-10")}>
             <TableRow className="hover:bg-transparent">
               {selectable && (
                 <TableHead className="w-10">
-                  <Checkbox checked={allOnPage} onCheckedChange={toggleAll} aria-label="Select all rows on this page" disabled={!selectablePageIds.length} />
+                  <Checkbox className="border-white/70" checked={allOnPage} onCheckedChange={toggleAll} aria-label="Select all rows on this page" disabled={!selectablePageIds.length} />
                 </TableHead>
               )}
               {columns.map((c) => {
@@ -167,13 +186,13 @@ export function DataTable<T>({
                 return (
                   <TableHead
                     key={c.id}
-                    className={cn("h-10 text-xs font-semibold tracking-wide text-muted-foreground uppercase", c.hideBelow && HIDE[c.hideBelow], c.align === "right" && "text-right", c.className)}
+                    className={cn("h-12 text-xs font-semibold tracking-[0.04em] text-white uppercase", c.hideBelow && HIDE[c.hideBelow], c.align === "right" && "text-right", c.className)}
                     aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}
                   >
                     {c.sortValue ? (
-                      <button type="button" onClick={() => onSort(c)} className={cn("inline-flex items-center gap-1 rounded uppercase hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none", active && "text-foreground")}>
+                      <button type="button" onClick={() => onSort(c)} className={cn("inline-flex items-center gap-1.5 rounded-sm uppercase hover:text-white/80 focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none")}>
                         {c.header}
-                        <SortIcon className="size-3.5" aria-hidden />
+                        <SortIcon className={cn("size-3.5", active ? "opacity-100" : "opacity-40")} aria-hidden />
                       </button>
                     ) : (
                       c.header
@@ -219,56 +238,57 @@ const EMPTY: ReadonlySet<string> = new Set()
 
 const PAGE_SIZES = [5, 10, 20, 50]
 
-/** Pagination footer: range, rows per page, numbered pages (with gaps), previous / next. Always visible. */
-function Pagination({ page, pageCount, pageSize, total, onPage, onPageSize }: { page: number; pageCount: number; pageSize: number; total: number; onPage: (p: number) => void; onPageSize: (n: number) => void }) {
+/** Pagination footer: range, rows per page, square numbered pages (with gaps), previous / next. Always visible. */
+export function Pagination({ page, pageCount, pageSize, total, onPage, onPageSize }: { page: number; pageCount: number; pageSize: number; total: number; onPage: (p: number) => void; onPageSize: (n: number) => void }) {
   const pages: (number | "gap")[] = []
   for (let i = 0; i < pageCount; i++) {
     if (i === 0 || i === pageCount - 1 || Math.abs(i - page) <= 1) pages.push(i)
     else if (pages[pages.length - 1] !== "gap") pages.push("gap")
   }
+  const sq = "inline-flex size-9 items-center justify-center rounded-[5px] border text-sm tabular-nums transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
   return (
-    <nav aria-label="Pagination" className="flex flex-col gap-3 border-t px-4 py-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-3">
+    <nav aria-label="Pagination" className="flex flex-col gap-3 border-t px-4 py-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         <span>
-          Showing <span className="font-medium text-foreground tabular-nums">{page * pageSize + 1}–{Math.min(total, (page + 1) * pageSize)}</span> of <span className="font-medium text-foreground tabular-nums">{total}</span>
+          Showing <span className="font-medium text-foreground tabular-nums">{total ? page * pageSize + 1 : 0}–{Math.min(total, (page + 1) * pageSize)}</span> of <span className="font-medium text-foreground tabular-nums">{total}</span>
         </span>
         <label className="flex items-center gap-2">
-          <span className="hidden sm:inline">Rows per page</span>
+          <span>Rows per page</span>
           <select
             value={pageSize}
             onChange={(e) => onPageSize(Number(e.target.value))}
-            className="h-8 rounded-md border bg-card px-2 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="h-9 rounded-[5px] border border-input bg-card px-2 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             aria-label="Rows per page"
           >
             {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
       </div>
-      <div className="flex items-center gap-1">
-        <Button variant="outline" size="icon" className="size-8" onClick={() => onPage(page - 1)} disabled={page === 0} aria-label="Previous page">
-          <ChevronLeft />
-        </Button>
+      <div className="flex items-center gap-1.5">
+        <button type="button" className={cn(sq, "border-input bg-card text-foreground hover:border-primary-dark/40 hover:bg-primary-light")} onClick={() => onPage(page - 1)} disabled={page === 0} aria-label="Previous page">
+          <ChevronLeft className="size-4" aria-hidden />
+        </button>
         {pages.map((p, i) =>
           p === "gap" ? (
-            <span key={`g${i}`} className="px-1" aria-hidden>…</span>
+            <span key={`g${i}`} className="inline-flex size-9 items-center justify-center" aria-hidden>…</span>
           ) : (
-            <Button
+            <button
               key={p}
-              variant={p === page ? "default" : "ghost"}
-              size="icon"
-              className={cn("size-8 tabular-nums", p !== page && "text-foreground")}
+              type="button"
+              className={cn(sq, p === page ? "border-primary-dark bg-primary-dark font-semibold text-white" : "border-transparent text-foreground hover:border-input hover:bg-card")}
               onClick={() => onPage(p)}
               aria-label={`Page ${p + 1}`}
               aria-current={p === page ? "page" : undefined}
             >
               {p + 1}
-            </Button>
+            </button>
           ),
         )}
-        <Button variant="outline" size="icon" className="size-8" onClick={() => onPage(page + 1)} disabled={page >= pageCount - 1} aria-label="Next page">
-          <ChevronRight />
-        </Button>
+        <button type="button" className={cn(sq, "border-input bg-card text-foreground hover:border-primary-dark/40 hover:bg-primary-light")} onClick={() => onPage(page + 1)} disabled={page >= pageCount - 1} aria-label="Next page">
+          <ChevronRight className="size-4" aria-hidden />
+        </button>
       </div>
     </nav>
   )
 }
+

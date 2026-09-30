@@ -16,7 +16,7 @@ export function RolesSettings() {
         <div className="overflow-x-auto">
           <Table>
             <caption className="sr-only">Permission matrix by role and module</caption>
-            <TableHeader className="bg-muted/60">
+            <TableHeader className="bg-primary-dark [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-[0.04em] [&_th]:text-white [&_th]:uppercase [&_tr]:border-primary-dark [&_tr]:hover:bg-transparent">
               <TableRow>
                 <TableHead className="min-w-48">Module</TableHead>
                 {ROLES.map((r) => <TableHead key={r} className="text-center">{r}</TableHead>)}

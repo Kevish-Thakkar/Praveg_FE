@@ -56,6 +56,10 @@ export interface VisitRow extends Visit {
   location: string
   inspectorName: string
   coordinatorId: string
+  /** currency for expenses: client pricing currency, else the inspector's rate currency */
+  currency: string
+  /** what "units spent" means for this job */
+  unitLabel: "Days" | "Hours"
 }
 
 export function toVisitRow(v: Visit): VisitRow {
@@ -68,6 +72,8 @@ export function toVisitRow(v: Visit): VisitRow {
     location: p ? `${p.site.city}, ${p.site.state}` : "—",
     inspectorName: db.inspectors.find((x) => x.id === v.inspectorId)?.name ?? "—",
     coordinatorId: p?.coordinatorId ?? "",
+    currency: p?.pricing?.currency ?? db.inspectors.find((x) => x.id === v.inspectorId)?.currency ?? "USD",
+    unitLabel: p?.pricing?.rateBasis === "Hourly" ? "Hours" : "Days",
   }
 }
 

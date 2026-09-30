@@ -56,7 +56,7 @@ export function InspectorDetailPage() {
           <AlertDescription className="text-warning">No CV on file. CVs are sent to clients — edit the inspector to upload one.</AlertDescription>
         </Alert>
       )}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 [&>*]:min-w-0">
         <Card>
           <CardHeader><CardTitle>Contact & location</CardTitle></CardHeader>
           <CardContent className="space-y-4">

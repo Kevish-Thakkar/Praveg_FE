@@ -13,7 +13,7 @@ export function processScheduledEmails(): void {
     const p = db.projects.find((x) => x.id === e.projectId)
     db.notifications.unshift({
       id: newId("ntf"), kind: "Email", title: `Automatic email sent — ${e.kind}`, body: `${e.subject} → ${e.to.join(", ")}`,
-      link: p ? `/projects/${p.id}` : "/emails", read: false, roles: ["Coordinator", "Super Admin"], createdAt: now,
+      link: p ? `/projects/${p.id}?tab=emails` : null, read: false, roles: ["Coordinator", "Super Admin"], createdAt: now,
     })
   }
 }

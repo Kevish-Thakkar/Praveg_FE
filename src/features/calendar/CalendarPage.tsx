@@ -116,7 +116,7 @@ export function CalendarPage() {
                     aria-label={`${format(d, "d MMMM")}, ${list.length} event${list.length === 1 ? "" : "s"}`}
                     className={cn("flex min-h-28 flex-col items-stretch justify-start border-r border-b p-1.5 text-left transition-colors [&:nth-child(7n)]:border-r-0 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none", inMonth ? "bg-card" : "bg-muted/40 text-muted-foreground", list.length ? "hover:bg-primary-soft/30" : "cursor-default")}
                   >
-                    <span className={cn("inline-flex size-6 items-center justify-center rounded-full text-xs font-medium", isToday(d) && "bg-primary text-primary-foreground")}>{format(d, "d")}</span>
+                    <span className={cn("inline-flex size-6 items-center justify-center rounded-full text-xs font-medium", isToday(d) && "bg-primary-dark text-white")}>{format(d, "d")}</span>
                     <span className="mt-1 block space-y-1">
                       {list.slice(0, 3).map((e) => (
                         <span key={e.id} className={cn("block truncate rounded px-1.5 py-0.5 text-[11px] font-medium", TONE_CLASSES[KIND_TONE[e.kind]], e.kind === "Required by" && "border border-dashed border-neutral/40")}>{e.title}</span>

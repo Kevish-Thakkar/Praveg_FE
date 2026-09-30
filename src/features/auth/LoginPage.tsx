@@ -114,10 +114,10 @@ export function LoginPage() {
               <ol className="mt-4 grid grid-cols-6 gap-1.5">
                 {[MapPin, Send, FileCheck2, UserCheck, CalendarClock, CheckCircle2].map((Icon, i) => (
                   <li key={i} className="flex flex-col items-center gap-1.5">
-                    <span className={`flex size-8 items-center justify-center rounded-full ${i < 4 ? "bg-primary text-white" : i === 4 ? "bg-primary-soft text-primary-text ring-2 ring-primary" : "bg-muted text-muted-foreground"}`}>
+                    <span className={`flex size-8 items-center justify-center rounded-full ${i < 4 ? "bg-primary-dark text-white" : i === 4 ? "bg-card text-primary-strong ring-2 ring-primary" : "bg-muted text-muted-foreground"}`}>
                       <Icon className="size-4" />
                     </span>
-                    <span className={`h-1 w-full rounded-full ${i < 4 ? "bg-primary" : "bg-muted"}`} />
+                    <span className={`h-1 w-full rounded-full ${i < 4 ? "bg-primary-dark" : "bg-muted"}`} />
                   </li>
                 ))}
               </ol>
@@ -157,7 +157,7 @@ export function LoginPage() {
                         <AlertDescription>{error}</AlertDescription>
                       </Alert>
                     )}
-                    <Button type="submit" size="lg" className="w-full bg-gradient-to-r from-[#07a3e7] to-[#1e56c8] text-white hover:opacity-95" disabled={sending}>
+                    <Button type="submit" size="lg" className="w-full" disabled={sending}>
                       {sending ? <Spinner /> : <KeyRound />}
                       Send one-time password
                     </Button>
@@ -190,7 +190,7 @@ export function LoginPage() {
                       <AlertDescription>{error}</AlertDescription>
                     </Alert>
                   )}
-                  <Button size="lg" className="w-full bg-gradient-to-r from-[#07a3e7] to-[#1e56c8] text-white hover:opacity-95" disabled={code.length !== 6 || verifying} onClick={() => void verify(code)}>
+                  <Button size="lg" className="w-full" disabled={code.length !== 6 || verifying} onClick={() => void verify(code)}>
                     {verifying && <Spinner />} Verify and sign in
                   </Button>
                   <div className="flex items-center justify-between text-sm">

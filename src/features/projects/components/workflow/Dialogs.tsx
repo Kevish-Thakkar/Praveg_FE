@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { DatePicker } from "@/components/forms/DatePicker"
 import { parseISO } from "date-fns"
 import { BellRing, CalendarCheck, Handshake, MessagesSquare } from "lucide-react"
 import { Label } from "@/components/ui/label"
@@ -76,7 +77,7 @@ export function DecisionDialog({ p, candidates, open, onOpenChange }: { p: Proje
         </fieldset>
         {mode === "Interview" && (
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5"><Label htmlFor="int-date">Interview date</Label><Input id="int-date" type="date" value={date} min={toISODate(new Date())} onChange={(e) => setDate(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label htmlFor="int-date">Interview date</Label><DatePicker id="int-date" value={date} min={toISODate(new Date())} onChange={(v) => setDate(v ?? "")} /></div>
             <div className="space-y-1.5"><Label htmlFor="int-time">Time</Label><Input id="int-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} /></div>
             {touched && past && <p className="text-xs text-destructive sm:col-span-2">The interview time must be in the future</p>}
             <p className="text-xs text-muted-foreground sm:col-span-2">The inspector is emailed the interview details.</p>

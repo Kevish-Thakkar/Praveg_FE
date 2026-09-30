@@ -36,7 +36,7 @@ const FileName = memo(function FileName({ d }: { d: DocumentRow }) {
   )
 })
 
-export function DocumentsTable({ rows, loading, canDelete, showEntity, empty, selectable, selected, onSelectedChange }: DocumentsTableProps) {
+export function DocumentsTable({ rows, loading, canDelete, showEntity, empty, selectable, selected, onSelectedChange, fill }: DocumentsTableProps & { fill?: boolean }) {
   const download = useDownloadDocument()
   const del = useDeleteDocument()
   const [toDelete, setToDelete] = useState<DocumentRow | null>(null)
@@ -72,6 +72,7 @@ export function DocumentsTable({ rows, loading, canDelete, showEntity, empty, se
   return (
     <>
       <DataTable
+        fill={fill}
         rows={rows}
         columns={columns}
         getRowId={(d) => d.id}

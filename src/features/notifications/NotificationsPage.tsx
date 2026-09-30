@@ -25,7 +25,7 @@ export function NotificationsPage() {
   const unread = (q.data ?? []).filter((n) => !n.read).length
 
   return (
-    <PageContainer className="max-w-4xl">
+    <PageContainer>
       <PageHeader title="Notifications" description="Workflow updates, automatic emails, price requests and payment updates for your role." actions={<Button variant="outline" disabled={!unread || markAll.isPending} onClick={() => markAll.mutate()}><CheckCheck /> Mark all read</Button>} />
       <Card className="gap-0 overflow-hidden py-0">
         <div className="border-b p-4">

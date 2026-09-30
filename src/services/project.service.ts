@@ -155,31 +155,52 @@ function clientRecipients(clientId: string) {
   }
 }
 
+export interface PresetDocument { id: string; name: string; category: string; sizeKb: number; group: string; suggested: boolean }
+
 export interface EmailPreset {
   kind: EmailKind
   context: MergeContext
   defaults: { to: string[]; cc: string[]; bcc: string[]; templateId: string; attachmentIds: string[] }
-  documents: { id: string; name: string; category: string; sizeKb: number }[]
+  /** every document the user may attach; the ones suited to this email are flagged `suggested` and pre-selected */
+  documents: PresetDocument[]
   suggestions: { email: string; name: string }[]
 }
 
 /** Client-facing emails open in the composer pre-filled from this preset. */
 function preset(projectId: string, kind: EmailKind, candidateIds: string[] = []): EmailPreset {
   const p = getProject(projectId)
+  const role = useSessionStore.getState().user?.role
   const cands = db.candidates.filter((c) => candidateIds.includes(c.id))
   const insps = cands.map((c) => db.inspectors.find((i) => i.id === c.inspectorId)!).filter(Boolean)
   const ctx = contextFor(p, { inspectors: insps })
   const r = clientRecipients(p.clientId)
+  const projectInspectorIds = new Set(db.candidates.filter((c) => c.projectId === p.id).map((c) => c.inspectorId))
   const cvs = db.documents.filter((d) => d.category === "CV" && insps.some((i) => i.id === d.entityId))
-  const projectDocs = db.documents.filter((d) => d.entityType === "Project" && d.entityId === p.id && d.category !== "Invoice" && d.category !== "Purchase Order")
-  const invoiceDocs = db.documents.filter((d) => d.entityType === "Project" && d.entityId === p.id && d.category === "Invoice")
+  const allProject = db.documents.filter((d) => d.entityType === "Project" && d.entityId === p.id && (role !== "Coordinator" || d.category !== "Invoice"))
+  const projectDocs = allProject.filter((d) => d.category !== "Invoice" && d.category !== "Purchase Order")
+  const invoiceDocs = allProject.filter((d) => d.category === "Invoice")
   const tpl = db.emailTemplates.find((t) => t.kind === kind)
-  const documents = kind === "CVs to Client" ? [...cvs, ...projectDocs.filter((d) => d.category === "Technical Document")] : kind.startsWith("Payment") ? invoiceDocs : projectDocs
+  // what this kind of email normally carries (pre-selected)
+  const suggestedDocs = kind === "CVs to Client" ? [...cvs, ...projectDocs.filter((d) => d.category === "Technical Document")] : kind.startsWith("Payment") ? invoiceDocs : projectDocs
   const attachmentIds = kind === "CVs to Client" ? cvs.map((d) => d.id) : kind === "Completion" ? projectDocs.filter((d) => d.category === "Report" || d.category === "Out Document").map((d) => d.id) : kind.startsWith("Payment") ? invoiceDocs.map((d) => d.id) : []
+  // everything else that can be attached
+  const inspectorCvs = db.documents.filter((d) => (d.category === "CV" || d.category === "Certificate") && d.entityType === "Inspector" && projectInspectorIds.has(d.entityId))
+  const clientDocs = db.documents.filter((d) => d.entityType === "Client" && d.entityId === p.clientId)
+  const library = db.documents.filter((d) => d.entityType === "Library")
+  const groupOf = (d: (typeof db.documents)[number]) => d.entityType === "Project" ? "Project documents" : d.entityType === "Inspector" ? "Inspector CVs & certificates" : d.entityType === "Client" ? "Client documents" : "Template library"
+  const suggested = new Set(suggestedDocs.map((d) => d.id))
+  const seen = new Set<string>()
+  const documents: PresetDocument[] = []
+  for (const d of [...suggestedDocs, ...allProject, ...inspectorCvs, ...clientDocs, ...library]) {
+    if (seen.has(d.id)) continue
+    seen.add(d.id)
+    const insp = d.entityType === "Inspector" ? db.inspectors.find((i) => i.id === d.entityId)?.name : null
+    documents.push({ id: d.id, name: insp ? `${d.name} — ${insp}` : d.name, category: d.category, sizeKb: d.sizeKb, group: groupOf(d), suggested: suggested.has(d.id) })
+  }
   return {
     kind, context: ctx, suggestions: r.suggestions,
     defaults: { to: r.to, cc: r.cc, bcc: r.bcc, templateId: tpl?.id ?? "", attachmentIds },
-    documents: documents.map((d) => ({ id: d.id, name: d.name, category: d.category, sizeKb: d.sizeKb })),
+    documents,
   }
 }
 

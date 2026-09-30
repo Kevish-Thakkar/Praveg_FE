@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { SearchInput } from "@/components/common/SearchInput"
-import { ALL, FilterBar, FilterSelect } from "@/components/common/FilterBar"
+import { ListToolbar } from "@/components/tables/ListToolbar"
+import { useHiddenColumns, useUrlFilters, useUrlSearch } from "@/hooks/use-list-state"
+import { exportCsv } from "@/lib/csv"
 import { DataTable, type Column } from "@/components/tables/DataTable"
 import { EmptyState } from "@/components/common/EmptyState"
 import { ActionMenu } from "@/components/common/ActionMenu"
@@ -18,6 +19,8 @@ import { useLookupOptions } from "@/features/settings/lookups"
 import type { VendorRow } from "@/services"
 import { useDeleteVendor, useSaveVendor, useVendors } from "./hooks"
 
+const KEYS = ["client"] as const
+
 export function VendorsPage() {
   const { data = [], isPending, isError, error, refetch } = useVendors()
   const { clientOptions } = useLookupOptions()
@@ -26,13 +29,15 @@ export function VendorsPage() {
   const canCreate = usePermission("vendors", "create")
   const canEdit = usePermission("vendors", "edit")
   const canDelete = usePermission("vendors", "delete")
-  const [search, setSearch] = useState("")
-  const [client, setClient] = useState(ALL)
+  const [search, setSearch] = useUrlSearch()
+  const f = useUrlFilters(KEYS)
+  const [hidden, setHidden] = useHiddenColumns("vendors")
+  const client = f.values.client
   const [editing, setEditing] = useState<VendorRow | "new" | null>(null)
   const [toDelete, setToDelete] = useState<VendorRow | null>(null)
   const rows = useMemo(() => {
     const s = search.trim().toLowerCase()
-    return data.filter((v) => (client === ALL || v.clientId === client) && (!s || `${v.name} ${v.email} ${v.address.city} ${v.clientName}`.toLowerCase().includes(s)))
+    return data.filter((v) => (!client.length || client.includes(v.clientId)) && (!s || `${v.name} ${v.email} ${v.address.city} ${v.clientName}`.toLowerCase().includes(s)))
   }, [data, search, client])
   const columns = useMemo<Column<VendorRow>[]>(() => [
     { id: "name", header: "Vendor", sortValue: (v) => v.name, cell: (v) => <div><p className="font-medium">{v.name}</p><p className="text-xs text-muted-foreground">{v.email}</p></div> },
@@ -46,14 +51,15 @@ export function VendorsPage() {
     <PageContainer>
       <PageHeader title="Vendors" description="Each vendor belongs to a client — the supplier or manufacturer where the job takes place." actions={canCreate && <Button onClick={() => setEditing("new")}><Plus /> Add vendor</Button>} />
       <Card className="gap-0 overflow-hidden py-0">
-        <div className="border-b p-4">
-          <FilterBar showReset={!!search || client !== ALL} onReset={() => { setSearch(""); setClient(ALL) }}>
-            <SearchInput value={search} onChange={setSearch} placeholder="Name, email, city or client" />
-            <FilterSelect label="Client" value={client} onChange={setClient} options={clientOptions} allLabel="All clients" className="sm:w-56" />
-          </FilterBar>
-        </div>
+        <ListToolbar
+          search={{ value: search, onChange: setSearch, placeholder: "Search name, email, city or client" }}
+          filters={[{ id: "client", label: "Client", options: clientOptions.map((o) => ({ ...o, count: data.filter((v) => v.clientId === o.value).length })), value: client, onChange: (v) => f.set("client", v) }]}
+          onClearFilters={f.clear}
+          columns={{ all: columns, hidden, onChange: setHidden }}
+          onExport={() => exportCsv("vendors", rows, columns)}
+        />
         {isError ? <ErrorState message={error.message} onRetry={() => void refetch()} /> : (
-          <DataTable rows={rows} columns={columns} getRowId={(v) => v.id} loading={isPending} onRowClick={canEdit ? (v) => setEditing(v) : undefined} initialSort={{ id: "name", dir: "asc" }} caption="Vendors"
+          <DataTable fill rows={rows} columns={columns} hiddenColumns={hidden} getRowId={(v) => v.id} loading={isPending} onRowClick={canEdit ? (v) => setEditing(v) : undefined} initialSort={{ id: "name", dir: "asc" }} caption="Vendors"
             mobileCard={(v) => <div><p className="font-medium">{v.name}</p><p className="text-xs text-muted-foreground">{v.clientName} · {v.address.city}, {v.address.state}</p></div>}
             empty={<EmptyState icon={Truck} title="No vendors found" description="Add the vendors of your clients." action={canCreate && <Button onClick={() => setEditing("new")}><Plus /> Add vendor</Button>} />}
           />

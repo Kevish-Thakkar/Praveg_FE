@@ -4,7 +4,7 @@ import { Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { useSearchIndex } from "@/features/dashboard/hooks"
-import { NAV } from "@/constants/navigation"
+import { NAV, NAV_FOOTER } from "@/constants/navigation"
 import { can } from "@/constants/permissions"
 import { useRole } from "@/store/session.store"
 import type { SearchHit } from "@/services"
@@ -37,7 +37,7 @@ export function GlobalSearch() {
     return [...out.entries()]
   }, [data, role])
 
-  const pages = NAV.flatMap((g) => g.items).filter((i) => can(role, i.module))
+  const pages = [...NAV.flatMap((g) => g.items), ...NAV_FOOTER].filter((i) => can(role, i.module))
 
   const go = (href: string) => {
     setOpen(false)
@@ -46,7 +46,7 @@ export function GlobalSearch() {
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)} className="h-9 w-9 justify-start gap-2 px-0 text-muted-foreground sm:w-56 sm:px-3 lg:w-64 xl:w-80" aria-label="Search (Ctrl+K)">
+      <Button variant="outline" onClick={() => setOpen(true)} className="h-10 w-10 justify-start gap-2 px-0 text-muted-foreground sm:w-56 sm:px-3 lg:w-64 xl:w-80" aria-label="Search (Ctrl+K)">
         <Search className="mx-auto sm:mx-0" />
         <span className="hidden sm:inline">Search projects, inspectors…</span>
         <kbd className="ml-auto hidden rounded border bg-muted px-1.5 font-mono text-[10px] xl:inline">Ctrl K</kbd>

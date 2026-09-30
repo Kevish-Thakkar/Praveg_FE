@@ -36,8 +36,8 @@ export function DashboardPage() {
     <PageContainer>
       <section className="relative mb-6 overflow-hidden rounded-2xl bg-brand-gradient px-5 py-6 text-white sm:px-8 sm:py-7">
         <div className="bg-grid-white pointer-events-none absolute inset-0 opacity-60 [mask-image:linear-gradient(90deg,transparent,black)]" aria-hidden />
-        <span className="pointer-events-none absolute top-1/2 right-6 hidden size-28 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 p-3 ring-8 ring-white/15 md:flex" aria-hidden>
-          <BrandLogo variant="mark" decorative className="size-full" />
+        <span className="pointer-events-none absolute top-1/2 right-6 hidden size-28 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full bg-white p-4 ring-8 ring-white/15 md:flex" aria-hidden>
+          <BrandLogo variant="mark" decorative className="size-full rounded-full object-cover" />
         </span>
         <div className="relative max-w-2xl space-y-2 md:pr-36">
           <p className="text-xs font-medium tracking-wide text-white/75 uppercase">{formatDate(new Date().toISOString(), "EEEE, dd MMMM yyyy")} · {me.role}</p>
@@ -52,7 +52,7 @@ export function DashboardPage() {
           {me.role !== "Accountant" && (
             <div className="flex flex-wrap gap-2 pt-2">
               <Can module="projects" action="create">
-                <Button asChild className="bg-white text-[#1e56c8] hover:bg-white/90"><Link to="/projects/new"><Plus /> New inquiry</Link></Button>
+                <Button asChild className="bg-white text-primary-strong hover:bg-white/90"><Link to="/projects/new"><Plus /> New inquiry</Link></Button>
               </Can>
               <Button asChild variant="outline" className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white"><Link to="/projects"><FileSearch /> Project board</Link></Button>
             </div>

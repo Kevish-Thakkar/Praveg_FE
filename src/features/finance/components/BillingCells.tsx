@@ -58,7 +58,7 @@ export function AmountDueCell({ p }: { p: ProjectRow }) {
   return (
     <div className="space-y-1 text-right">
       <Money amount={total} currency={cur} className="block font-semibold" />
-      <p className="text-[11px] text-muted-foreground">{inv ? "Invoice total incl. tax" : "Client price, excl. tax"}</p>
+      <p className="text-[11px] text-muted-foreground">{inv ? <>{inv.number} · incl. tax</> : "Client price, excl. tax"}</p>
       <p className={cn("text-xs", due ? "text-foreground" : "text-success")}>
         {p.billing.status === "Paid" ? "Nothing due" : <>Due <Money amount={due} currency={cur} className="font-semibold" /></>}
       </p>

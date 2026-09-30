@@ -5,37 +5,42 @@
 
 /*
  * Design tokens — Praveg Operations Platform
- * Primary   #07A3E7  (brand; fills, active nav, focus, selection)
- * Secondary #F3F5F7  (page background, subtle surfaces)
- * --primary-text is a darker shade of the primary used for text/links on light
- * surfaces, because #07A3E7 on white is ~2.8:1 and fails WCAG AA for body text.
+ * Built from the three logo blues (sky #07A3E7 → royal #1E56C8 → navy #1B2F7A).
+ *  --primary        sky   — highlights, progress fills, focus ring, selection
+ *  --primary-strong royal — buttons and links (white on #07A3E7 is only ~2.8:1, royal is ~6:1)
+ *  --primary-dark   navy  — table headers, active pagination, selected navigation, important states
+ *  --primary-light        — tinted surfaces for selected / hover
  */
 :root {
   --radius: 0.5rem;
 
-  --background: #f3f5f7;
-  --foreground: #0f1b2a;
+  --background: #f5f7fa;
+  --surface: #ffffff;
+  --foreground: #13203a;
   --card: #ffffff;
-  --card-foreground: #0f1b2a;
+  --card-foreground: #13203a;
   --popover: #ffffff;
-  --popover-foreground: #0f1b2a;
+  --popover-foreground: #13203a;
 
   --primary: #07a3e7;
   --primary-foreground: #ffffff;
-  --primary-text: #0473a6;
-  --primary-soft: #e6f6fd;
+  --primary-strong: #1e56c8;
+  --primary-dark: #1b2f7a;
+  --primary-light: #eaf0fc;
+  --primary-text: #1e56c8;
+  --primary-soft: #e8f6fd;
 
-  --secondary: #f3f5f7;
-  --secondary-foreground: #1f2d3d;
-  --muted: #f3f5f7;
-  --muted-foreground: #5b6b7b;
-  --accent: #e6f6fd;
-  --accent-foreground: #0473a6;
+  --secondary: #f1f4f8;
+  --secondary-foreground: #1f2d45;
+  --muted: #f1f4f8;
+  --muted-foreground: #5a6780;
+  --accent: #eaf0fc;
+  --accent-foreground: #1b2f7a;
 
   --destructive: #dc2626;
-  --border: #e2e7ec;
-  --input: #d5dce3;
-  --ring: #07a3e7;
+  --border: #e3e8ef;
+  --input: #d3dae4;
+  --ring: #1e56c8;
 
   /* Status tokens (text on soft background) */
   --success: #15803d;
@@ -44,10 +49,10 @@
   --warning-soft: #fdf3e2;
   --danger: #b91c1c;
   --danger-soft: #fdecec;
-  --info: #0473a6;
-  --info-soft: #e6f6fd;
+  --info: #1e56c8;
+  --info-soft: #eaf0fc;
   --neutral: #475569;
-  --neutral-soft: #eef1f4;
+  --neutral-soft: #eef1f5;
   --violet: #6d28d9;
   --violet-soft: #f1ebfd;
 
@@ -59,17 +64,17 @@
   --chart-5: #94a3b8;
 
   --sidebar: #ffffff;
-  --sidebar-foreground: #1f2d3d;
-  --sidebar-primary: #07a3e7;
+  --sidebar-foreground: #2a3752;
+  --sidebar-primary: #1b2f7a;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e6f6fd;
-  --sidebar-accent-foreground: #0473a6;
-  --sidebar-border: #e2e7ec;
-  --sidebar-ring: #07a3e7;
+  --sidebar-accent: #eaf0fc;
+  --sidebar-accent-foreground: #1b2f7a;
+  --sidebar-border: #e3e8ef;
+  --sidebar-ring: #1e56c8;
 }
 
 @theme inline {
-  --font-sans: "Inter", "Segoe UI", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Rubik", "Segoe UI", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -84,6 +89,10 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-text: var(--primary-text);
+  --color-primary-strong: var(--primary-strong);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-light: var(--primary-light);
+  --color-surface: var(--surface);
   --color-primary-soft: var(--primary-soft);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -134,6 +143,44 @@
   }
   body {
     @apply bg-background text-foreground font-sans text-sm;
+  }
+}
+
+/* ───────── Scrollbars — slim, navy-tinted thumb that turns royal on hover; transparent track ─────────
+ * Chromium/Safari/Edge use ::-webkit-scrollbar (rounded thumb with an inset gap).
+ * Browsers without ::-webkit-scrollbar (Firefox) get the standard properties. They must NOT reach
+ * Chrome/Edge: from v121, setting scrollbar-color / scrollbar-width makes them ignore ::-webkit-scrollbar.
+ */
+:root {
+  --scrollbar-thumb: rgb(27 47 122 / 0.22);
+  --scrollbar-thumb-hover: rgb(30 86 200 / 0.65);
+  --scrollbar-thumb-active: #1e56c8;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  min-height: 32px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--scrollbar-thumb-active);
+}
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 }
 

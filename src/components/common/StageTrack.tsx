@@ -1,42 +1,34 @@
 import { memo } from "react"
-import { Check } from "lucide-react"
-import { STAGES } from "@/lib/workflow"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { CheckpointNode } from "@/components/workflow/CheckpointNode"
+import { STATUS_LABEL, type CheckpointStatus } from "@/lib/project-workflow"
 import { cn } from "@/lib/utils"
 import type { ProjectStage } from "@/types/domain"
 
-/** Compact 6-segment progress track for table rows. Each segment has a tooltip with the stage name. */
+/** The five operations checkpoints, as used on the project page and in the Projects list. */
+const STEPS = ["Requirement", "Inspector sourcing", "Inspector onboarding", "Job execution", "Report & completion"]
+/** which checkpoint a stage sits in */
+const AT: Record<Exclude<ProjectStage, "Cancelled" | "Completed">, number> = {
+  Inquiry: 0, "Inspector Assigned": 1, "CVs Sent": 2, "Inspector Confirmed": 2, "Job Scheduled": 3,
+}
+
+/**
+ * Compact checkpoint track for rows that only know the project stage (client / inspector pages, requests).
+ * Same nodes and colours as the checkpoint workflow everywhere else.
+ */
 export const StageTrack = memo(function StageTrack({ stage, className }: { stage: ProjectStage; className?: string }) {
-  const current = STAGES.findIndex((s) => s.stage === stage)
+  const done = stage === "Completed"
   const cancelled = stage === "Cancelled"
-  const complete = stage === "Completed"
+  const at = done || cancelled ? -1 : AT[stage]
+  const status = (i: number): CheckpointStatus => (done ? "completed" : cancelled ? "skipped" : i < at ? "completed" : i === at ? "in_progress" : "not_started")
+  const label = done ? "All steps complete" : cancelled ? "Cancelled" : `Step ${at + 1} of 5: ${STEPS[at]}`
   return (
-    <ol className={cn("flex items-center gap-1", className)} aria-label={`Stage ${cancelled ? "cancelled" : `${current + 1} of ${STAGES.length}: ${stage}`}`}>
-      {STAGES.map((s, i) => {
-        const done = !cancelled && (i < current || complete)
-        const active = !cancelled && !complete && i === current
-        return (
-          <li key={s.stage} className="flex items-center">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className={cn(
-                    "flex size-5 items-center justify-center rounded-full text-[10px] font-semibold",
-                    done && "bg-primary text-white",
-                    active && "bg-primary-soft text-primary-text ring-2 ring-primary",
-                    !done && !active && "bg-muted text-muted-foreground",
-                    cancelled && "bg-danger-soft/60 text-danger/60",
-                  )}
-                >
-                  {done ? <Check className="size-3" strokeWidth={3} /> : i + 1}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>{i + 1}. {s.stage}</TooltipContent>
-            </Tooltip>
-            {i < STAGES.length - 1 && <span className={cn("h-0.5 w-2.5", done ? "bg-primary" : "bg-border")} aria-hidden />}
-          </li>
-        )
-      })}
-    </ol>
+    <span className={cn("flex items-center", className)} role="img" aria-label={label}>
+      {STEPS.map((s, i) => (
+        <span key={s} className="flex items-center" title={`${s}: ${STATUS_LABEL[status(i)]}`}>
+          <CheckpointNode status={status(i)} progress={40} number={i + 1} size="sm" />
+          {i < STEPS.length - 1 && <span aria-hidden className={cn("mx-0.5 h-0.5 w-2.5", status(i) === "completed" ? "bg-primary-dark" : "border-t-2 border-dotted border-input")} />}
+        </span>
+      ))}
+    </span>
   )
 })

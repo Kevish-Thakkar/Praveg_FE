@@ -65,7 +65,7 @@ export function RequestsPage() {
           </FilterBar>
         </div>
         {q.isError ? <ErrorState message={q.error.message} onRetry={() => void q.refetch()} /> : (
-          <DataTable rows={rows} columns={columns} getRowId={(r) => r.id} loading={q.isPending} onRowClick={(r) => navigate(`/projects/${r.projectId}`)} caption="Inspector requests"
+          <DataTable fill rows={rows} columns={columns} getRowId={(r) => r.id} loading={q.isPending} onRowClick={(r) => navigate(`/projects/${r.projectId}`)} caption="Inspector requests"
             mobileCard={(r) => <div className="space-y-1"><div className="flex justify-between gap-2"><p className="font-medium">{r.inspectorName}</p><StatusBadge status={r.availability} /></div><p className="text-xs text-muted-foreground">{r.projectCode} · {r.clientName}</p></div>}
             empty={<EmptyState icon={MailQuestion} title="No requests" description="Request availability from a project page." />} />
         )}
