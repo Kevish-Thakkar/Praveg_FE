@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { Link } from "react-router-dom"
-import { ShieldAlert } from "lucide-react"
+import { ShieldAlert } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/common/EmptyState"
 import { PageContainer } from "@/components/layout/PageContainer"

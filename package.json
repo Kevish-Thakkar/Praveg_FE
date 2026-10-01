@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
+    "@phosphor-icons/react": "^2.1.10",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.103.2",
     "class-variance-authority": "^0.7.1",
@@ -44,5 +45,5 @@
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
   },
-  "description": "Praveg Operations Management Platform \u2014 interactive frontend wireframe (mock data)"
+  "description": "Praveg Operations Management Platform — interactive frontend wireframe (mock data)"
 }

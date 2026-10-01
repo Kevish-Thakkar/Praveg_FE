@@ -3,7 +3,7 @@ import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useNavigate, useParams } from "react-router-dom"
-import { FileText } from "lucide-react"
+import { FileTypeIcon } from "@/components/common/FileTypeIcon"
 import { Form } from "@/components/ui/form"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -153,7 +153,7 @@ function InspectorForm({ initial }: { initial?: InspectorRow }) {
               {stepper.step.id === "cv" && (
                 <div className="space-y-3">
                   {currentCv && cv.length === 0 && (
-                    <p className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2.5 text-sm"><FileText className="size-4 text-primary-text" aria-hidden /> Current: <span className="font-medium">{currentCv.name}</span></p>
+                    <p className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2.5 text-sm"><FileTypeIcon name={currentCv.name} className="size-5" /> Current: <span className="font-medium">{currentCv.name}</span></p>
                   )}
                   <FileDropzone files={cv} onChange={(f) => { setCv(f); setCvError(null) }} multiple={false} accept=".pdf,.doc,.docx" maxSizeMb={10} hint="PDF or Word · up to 10 MB" invalid={!!cvError} />
                   {cvError && <p className="text-sm text-danger" role="alert">{cvError}</p>}

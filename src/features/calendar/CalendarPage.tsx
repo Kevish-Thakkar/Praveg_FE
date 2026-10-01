@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isToday, parseISO, startOfMonth, startOfWeek } from "date-fns"
-import { CalendarDays, ChevronLeft, ChevronRight, List } from "lucide-react"
+import { CalendarDays, ChevronLeft, ChevronRight, List } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"

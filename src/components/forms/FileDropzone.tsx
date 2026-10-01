@@ -1,5 +1,6 @@
-import { useId, useRef, useState, type DragEvent } from "react"
-import { FileUp, X } from "lucide-react"
+import { useId, useRef, useState, type DragEvent, type ReactNode } from "react"
+import { FileUp, X } from "@/components/icons"
+import { FileTypeIcon } from "@/components/common/FileTypeIcon"
 import { formatFileSize } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -12,9 +13,11 @@ interface FileDropzoneProps {
   /** single-file mode replaces the current file */
   multiple?: boolean
   invalid?: boolean
+  /** extra control shown on each selected file's row (e.g. its category) */
+  renderFileExtra?: (file: File) => ReactNode
 }
 
-export function FileDropzone({ files, onChange, accept = ".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip", maxSizeMb = 25, hint, multiple = true, invalid }: FileDropzoneProps) {
+export function FileDropzone({ files, onChange, accept = ".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip", maxSizeMb = 25, hint, multiple = true, invalid, renderFileExtra }: FileDropzoneProps) {
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
@@ -57,10 +60,12 @@ export function FileDropzone({ files, onChange, accept = ".pdf,.doc,.docx,.xls,.
             const tooBig = f.size > maxSizeMb * 1024 * 1024
             return (
               <li key={`${f.name}-${f.size}`} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                <div className="min-w-0">
+                <FileTypeIcon name={f.name} className="size-5" />
+                <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{f.name}</p>
                   <p className={cn("text-xs", tooBig ? "text-danger" : "text-muted-foreground")}>{formatFileSize(f.size / 1024)}{tooBig && " · exceeds limit"}</p>
                 </div>
+                {renderFileExtra?.(f)}
                 <button type="button" onClick={() => onChange(files.filter((x) => x !== f))} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={`Remove ${f.name}`}>
                   <X className="size-4" />
                 </button>

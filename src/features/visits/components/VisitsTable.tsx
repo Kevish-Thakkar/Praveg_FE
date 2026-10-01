@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react"
-import { CalendarCheck, CalendarX, MapPinned } from "lucide-react"
+import { CalendarCheck, CalendarX, MapPinned } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { DataTable, type Column } from "@/components/tables/DataTable"
 import { StatusBadge } from "@/components/common/StatusBadge"

@@ -10,8 +10,8 @@ export interface DocumentFilter {
   category?: DocumentCategory
 }
 
-export const useDocuments = (filter: DocumentFilter = {}) =>
-  useQuery({ queryKey: [...qk.documents, filter], queryFn: () => documentService.list(filter) })
+export const useDocuments = (filter: DocumentFilter = {}, opts: { enabled?: boolean } = {}) =>
+  useQuery({ queryKey: [...qk.documents, filter], queryFn: () => documentService.list(filter), enabled: opts.enabled })
 
 export const useUploadDocuments = () =>
   useAppMutation({

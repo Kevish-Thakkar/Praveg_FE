@@ -15,6 +15,7 @@ const DashboardPage = page(() => import("@/features/dashboard/DashboardPage"), "
 const ProjectsPage = page(() => import("@/features/projects/ProjectsPage"), "ProjectsPage")
 const ProjectFormPage = page(() => import("@/features/projects/ProjectFormPage"), "ProjectFormPage")
 const ProjectDetailPage = page(() => import("@/features/projects/ProjectDetailPage"), "ProjectDetailPage")
+const ProjectStepPage = page(() => import("@/features/projects/ProjectStepPage"), "ProjectStepPage")
 const RequestsPage = page(() => import("@/features/requests/RequestsPage"), "RequestsPage")
 const PurchaseOrdersPage = page(() => import("@/features/purchase-orders/PurchaseOrdersPage"), "PurchaseOrdersPage")
 const VisitsPage = page(() => import("@/features/visits/VisitsPage"), "VisitsPage")
@@ -24,6 +25,7 @@ const NotificationsPage = page(() => import("@/features/notifications/Notificati
 const DocumentsPage = page(() => import("@/features/documents/DocumentsPage"), "DocumentsPage")
 const OutDocumentsPage = page(() => import("@/features/out-documents/OutDocumentsPage"), "OutDocumentsPage")
 const EmailsPage = page(() => import("@/features/emails/EmailsPage"), "EmailsPage")
+const EmailThreadPage = page(() => import("@/features/emails/EmailThreadPage"), "EmailThreadPage")
 const ClientsPage = page(() => import("@/features/clients/ClientsPage"), "ClientsPage")
 const ClientDetailPage = page(() => import("@/features/clients/ClientDetailPage"), "ClientDetailPage")
 const VendorsPage = page(() => import("@/features/vendors/VendorsPage"), "VendorsPage")
@@ -61,6 +63,7 @@ export const router = createBrowserRouter([
           { path: "new", element: guard("projects", <ProjectFormPage />, "create") },
           { path: ":projectId", element: guard("projects", <ProjectDetailPage />) },
           { path: ":projectId/edit", element: guard("projects", <ProjectFormPage />, "edit") },
+          { path: ":projectId/steps/:stepId", element: guard("projects", <ProjectStepPage />) },
         ],
       },
       { path: "requests", element: guard("candidates", <RequestsPage />) },
@@ -73,7 +76,13 @@ export const router = createBrowserRouter([
       { path: "notifications", element: <NotificationsPage /> },
       { path: "documents", element: guard("documents", <DocumentsPage />) },
       { path: "out-documents", element: guard("outDocuments", <OutDocumentsPage />) },
-      { path: "emails", element: guard("emails", <EmailsPage />) },
+      {
+        path: "emails",
+        children: [
+          { index: true, element: guard("emails", <EmailsPage />) },
+          { path: ":threadId", element: guard("emails", <EmailThreadPage />) },
+        ],
+      },
       {
         path: "clients",
         children: [

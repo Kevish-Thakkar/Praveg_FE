@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { AlertCircle, ArrowLeft, ArrowRight, Check, Save } from "lucide-react"
+import { AlertCircle, ArrowLeft, ArrowRight, Check, Save } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/feedback/LoadingState"
 import { formatDate } from "@/lib/dates"

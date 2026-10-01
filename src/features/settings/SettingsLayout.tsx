@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
-import { Building, Coins, KeyRound, LayoutList, Mail, PlugZap, ShieldCheck, Users } from "lucide-react"
+import { Building, Coins, KeyRound, LayoutList, Mail, PlugZap, ShieldCheck, Users } from "@/components/icons"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { PageHeader } from "@/components/layout/PageHeader"

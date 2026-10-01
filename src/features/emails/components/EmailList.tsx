@@ -1,21 +1,20 @@
-import { useMemo, useState, type ReactNode } from "react"
-import { Link } from "react-router-dom"
+﻿import { useMemo, useState, type ReactNode } from "react"
+import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { Clock, Download, FileText, Mail, Paperclip, Zap } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Clock, Download, Mail, Paperclip, Reply, Zap } from "@/components/icons"
+import { FileTypeIcon } from "@/components/common/FileTypeIcon"
 import { EmptyState } from "@/components/common/EmptyState"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import { DataTable, type Column } from "@/components/tables/DataTable"
-import { DetailDrawer } from "@/components/dialogs/DetailDrawer"
 import { Spinner } from "@/components/feedback/LoadingState"
 import { formatDate, formatDateTime } from "@/lib/dates"
-import { formatFileSize } from "@/lib/format"
+import { EMAIL_KIND_CLS } from "@/lib/category-colors"
 import { cn } from "@/lib/utils"
 import { documentService, type EmailRow } from "@/services"
 import type { EmailKind } from "@/types/domain"
 
 /** Who the email goes to decides its colour: inspector, client, or payment. */
-const AUDIENCE: Record<EmailKind, { label: string; cls: string }> = {
+export const EMAIL_AUDIENCE: Record<EmailKind, { label: string; cls: string }> = {
   "Availability Request": { label: "Inspector", cls: "bg-info-soft text-info" },
   Interview: { label: "Inspector", cls: "bg-info-soft text-info" },
   "Inspector Confirmation": { label: "Inspector", cls: "bg-info-soft text-info" },
@@ -29,7 +28,7 @@ const AUDIENCE: Record<EmailKind, { label: string; cls: string }> = {
 }
 
 /** Generates short-lived download links (mock) for one or many attachments; one toast for the batch. */
-function useAttachmentDownload() {
+export function useAttachmentDownload() {
   const [busy, setBusy] = useState<string | null>(null)
   const run = async (key: string, ids: string[]) => {
     if (!ids.length) return
@@ -59,7 +58,7 @@ function Attachments({ e, dl, compact }: { e: EmailRow; dl: ReturnType<typeof us
           className="group flex max-w-60 items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-left text-xs transition hover:border-primary/60 hover:bg-primary-soft/40 disabled:opacity-50"
           title={a.available ? `Download ${a.name}` : "File removed"}
         >
-          <FileText className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <FileTypeIcon name={a.name} className="size-3.5" />
           <span className="min-w-0 flex-1 truncate">{a.name}</span>
           {dl.busy === a.id ? <Spinner /> : <Download className="size-3.5 shrink-0 text-primary-text opacity-70 group-hover:opacity-100" aria-hidden />}
         </button>
@@ -74,30 +73,37 @@ function Attachments({ e, dl, compact }: { e: EmailRow; dl: ReturnType<typeof us
   )
 }
 
-/** Sent / scheduled email log with attachment download. Opens a reader on click. */
-export function EmailList({ emails, empty, showProject = true, fill = false }: { emails: EmailRow[]; empty?: ReactNode; showProject?: boolean; fill?: boolean }) {
-  const [open, setOpen] = useState<EmailRow | null>(null)
+/** Email log (inbox, sent) with attachment download. Opens the conversation on click. */
+export function EmailList({ emails, empty, showProject = true, fill = false, dateHeader = "Sent" }: { emails: EmailRow[]; empty?: ReactNode; showProject?: boolean; fill?: boolean; dateHeader?: string }) {
+  const navigate = useNavigate()
   const dl = useAttachmentDownload()
 
   const columns = useMemo<Column<EmailRow>[]>(() => [
     {
       id: "email", header: "Email", sortValue: (e) => e.subject,
       cell: (e) => {
-        const a = AUDIENCE[e.kind]
+        const a = EMAIL_AUDIENCE[e.kind]
         const scheduled = e.status === "Scheduled"
+        const inbound = e.direction === "Inbound"
         return (
           <div className="flex min-w-0 max-w-[26rem] items-start gap-3">
             <span className={cn("mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg", scheduled ? "bg-violet-soft text-violet" : a.cls)}>
-              {scheduled ? <Clock className="size-4" aria-hidden /> : e.automatic ? <Zap className="size-4" aria-hidden /> : <Mail className="size-4" aria-hidden />}
+              {scheduled ? <Clock className="size-4" aria-hidden /> : inbound ? <Reply className="size-4" aria-hidden /> : e.automatic ? <Zap className="size-4" aria-hidden /> : <Mail className="size-4" aria-hidden />}
             </span>
             <div className="min-w-0">
-              <p className="truncate font-medium text-foreground">{e.subject}</p>
+              <p className="flex min-w-0 items-center gap-1.5">
+                {e.unread && <span className="size-2 shrink-0 rounded-full bg-primary-strong" aria-label="Unread" />}
+                <span className={cn("truncate text-foreground", e.unread ? "font-semibold" : "font-medium")}>{e.subject}</span>
+                {e.threadCount > 1 && <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded bg-muted px-1.5 text-[11px] leading-none font-semibold text-muted-foreground tabular-nums" title={`${e.threadCount} messages in this conversation`}>{e.threadCount}</span>}
+              </p>
               <p className="flex flex-wrap items-center gap-1.5 pt-0.5">
                 <span className={cn("rounded px-1.5 py-0.5 text-[11px] font-medium", a.cls)}>{a.label}</span>
-                <span className="text-[11px] text-muted-foreground">{e.kind}</span>
+                <span className={cn("rounded px-1.5 py-0.5 text-[11px] font-medium", EMAIL_KIND_CLS[e.kind])}>{e.kind}</span>
                 {e.automatic && <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">Automatic</span>}
               </p>
-              <p className="truncate pt-0.5 text-xs text-muted-foreground" title={[...e.to, ...e.cc].join(", ")}>To {e.to.join(", ")}{e.cc.length ? ` · +${e.cc.length} CC` : ""}</p>
+              {inbound
+                ? <p className="truncate pt-0.5 text-xs text-muted-foreground" title={e.fromAddress}>From {e.fromName}{e.fromName !== e.fromAddress ? ` <${e.fromAddress}>` : ""}</p>
+                : <p className="truncate pt-0.5 text-xs text-muted-foreground" title={[...e.to, ...e.cc].join(", ")}>To {e.to.join(", ")}{e.cc.length ? ` · +${e.cc.length} CC` : ""}</p>}
             </div>
           </div>
         )
@@ -113,7 +119,7 @@ export function EmailList({ emails, empty, showProject = true, fill = false }: {
       ) : <span className="text-xs text-muted-foreground">—</span>,
     }] : []),
     {
-      id: "sent", header: "Sent", sortValue: (e) => e.sentAt,
+      id: "sent", header: dateHeader, sortValue: (e) => e.sentAt,
       cell: (e) => (
         <div className="space-y-0.5">
           <StatusBadge status={e.status} />
@@ -124,7 +130,7 @@ export function EmailList({ emails, empty, showProject = true, fill = false }: {
     },
     { id: "files", header: "Attachments", hideBelow: "md", cell: (e) => <Attachments e={e} dl={dl} compact /> },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [showProject, dl.busy])
+  ], [showProject, dateHeader, dl.busy])
 
   if (!emails.length) return <>{empty ?? <EmptyState compact icon={Mail} title="No emails yet" description="Emails sent from the platform are saved here automatically." />}</>
 
@@ -135,52 +141,20 @@ export function EmailList({ emails, empty, showProject = true, fill = false }: {
         rows={emails}
         columns={columns}
         getRowId={(e) => e.id}
-        onRowClick={setOpen}
+        onRowClick={(e) => navigate(`/emails/${e.threadId}`)}
         initialSort={{ id: "sent", dir: "desc" }}
         caption="Emails"
         mobileCard={(e) => (
           <div className="space-y-1.5">
-            <div className="flex items-start justify-between gap-2"><p className="min-w-0 truncate font-medium">{e.subject}</p><StatusBadge status={e.status} /></div>
-            <p className="text-xs text-muted-foreground">{e.kind} · {formatDate(e.sentAt, "dd MMM, HH:mm")}{e.projectCode ? ` · ${e.projectCode}` : ""}</p>
+            <div className="flex items-start justify-between gap-2"><p className={cn("min-w-0 truncate", e.unread ? "font-semibold" : "font-medium")}>{e.subject}</p><StatusBadge status={e.status} /></div>
+            <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <span className={cn("rounded px-1.5 py-0.5 text-[11px] font-medium", EMAIL_KIND_CLS[e.kind])}>{e.kind}</span>
+              <span>{e.direction === "Inbound" ? `From ${e.fromName} · ` : ""}{formatDate(e.sentAt, "dd MMM, HH:mm")}{e.projectCode ? ` · ${e.projectCode}` : ""}</span>
+            </p>
             {e.attachments.length > 0 && <p className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Paperclip className="size-3" /> {e.attachments.length} attachment{e.attachments.length === 1 ? "" : "s"}</p>}
           </div>
         )}
       />
-      <DetailDrawer open={!!open} onOpenChange={(o) => !o && setOpen(null)} title={open?.subject} description={open ? `${open.kind} · ${open.status === "Scheduled" ? "goes out" : "sent"} ${formatDateTime(open.sentAt)} · ${open.sentByName}` : undefined} size="lg">
-        {open && (
-          <div className="space-y-5">
-            <dl className="divide-y rounded-lg border text-sm">
-              {([["To", open.to.join(", ")], ["CC", open.cc.join(", ") || "—"], ["BCC", open.bcc.join(", ") || "—"], ["Project", open.projectCode ? `${open.projectCode} · ${open.projectTitle}` : "—"]] as const).map(([k, v]) => (
-                <div key={k} className="grid grid-cols-[4.5rem_1fr] gap-3 px-3 py-2"><dt className="text-muted-foreground">{k}</dt><dd className="min-w-0 break-words">{v}</dd></div>
-              ))}
-            </dl>
-            <div className="rounded-lg border bg-muted/40 p-4 text-sm whitespace-pre-wrap">{open.body}</div>
-            <section className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="flex items-center gap-1.5 text-sm font-semibold"><Paperclip className="size-4" /> Attachments ({open.attachments.length})</h3>
-                {open.attachments.filter((a) => a.available).length > 1 && (
-                  <Button size="sm" variant="outline" disabled={!!dl.busy} onClick={() => void dl.run(`all_${open.id}`, open.attachments.filter((a) => a.available).map((a) => a.id))}>
-                    {dl.busy === `all_${open.id}` ? <Spinner /> : <Download />} Download all
-                  </Button>
-                )}
-              </div>
-              {open.attachments.length === 0 ? <p className="text-sm text-muted-foreground">No attachments</p> : (
-                <ul className="divide-y rounded-lg border">
-                  {open.attachments.map((a) => (
-                    <li key={a.id} className="flex items-center gap-3 px-3 py-2">
-                      <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                      <span className="min-w-0 flex-1"><span className="block truncate text-sm">{a.name}</span><span className="text-xs text-muted-foreground">{a.available ? `${a.category} · ${formatFileSize(a.sizeKb)}` : "File removed"}</span></span>
-                      <Button size="sm" variant="ghost" disabled={!a.available || !!dl.busy} onClick={() => void dl.run(a.id, [a.id])} aria-label={`Download ${a.name}`}>
-                        {dl.busy === a.id ? <Spinner /> : <Download />} Download
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </div>
-        )}
-      </DetailDrawer>
     </>
   )
 }

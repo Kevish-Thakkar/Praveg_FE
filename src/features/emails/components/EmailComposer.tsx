@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { AlertTriangle, FileText, Paperclip, Send, Upload } from "lucide-react"
+import { AlertTriangle, Paperclip, Send, Upload } from "@/components/icons"
+import { FileTypeIcon } from "@/components/common/FileTypeIcon"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -8,7 +9,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { DetailDrawer } from "@/components/dialogs/DetailDrawer"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { DIALOG_MOBILE_BODY, DIALOG_MOBILE_FOOTER, DIALOG_MOBILE_FULLSCREEN } from "@/components/dialogs/FormDialog"
+import { cn } from "@/lib/utils"
+import { docCategoryCls } from "@/lib/category-colors"
 import { Spinner } from "@/components/feedback/LoadingState"
 import { formatFileSize, toFileMeta } from "@/lib/format"
 import { FileDropzone } from "@/components/forms/FileDropzone"
@@ -144,21 +148,13 @@ export function EmailComposer({ open, onOpenChange, title, description, kind, co
   }
 
   return (
-    <DetailDrawer
-      open={open}
-      onOpenChange={(o) => !sending && onOpenChange(o)}
-      title={title}
-      description={description}
-      size="lg"
-      footer={
-        <>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={sending}>Cancel</Button>
-          <Button onClick={submit} disabled={sending || !!smtpDown}>
-            {sending ? <Spinner /> : <Send />} {sendLabel}
-          </Button>
-        </>
-      }
-    >
+    <Dialog open={open} onOpenChange={(o) => !sending && onOpenChange(o)}>
+      <DialogContent className={cn(DIALOG_MOBILE_FULLSCREEN, "sm:max-w-2xl")}>
+        <DialogHeader className="border-b px-4 pt-5 pb-4 pr-12 text-left sm:px-6 sm:pt-6">
+          <DialogTitle>{title}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
+        <div className={DIALOG_MOBILE_BODY}>
       <div className="space-y-5">
         {smtpDown && (
           <Alert variant="destructive">
@@ -231,29 +227,49 @@ export function EmailComposer({ open, onOpenChange, title, description, kind, co
             <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">No documents available for this project yet.</p>
           ) : (
             <div className="max-h-72 space-y-3 overflow-y-auto rounded-lg border p-2">
-              {groups.map(([g, docs]) => (
+              {groups.map(([g, docs]) => {
+                const picked = docs.filter((d) => attachments.has(d.id)).length
+                const state = picked === docs.length ? true : picked ? "indeterminate" : false
+                return (
                 <div key={g}>
-                  <p className="px-2 pb-1 text-[11px] font-semibold tracking-[0.04em] text-primary-dark uppercase">{g}</p>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/60">
+                    <Checkbox
+                      checked={state}
+                      onCheckedChange={() => setAttachments((s) => { const n = new Set(s); for (const d of docs) { if (state === true) n.delete(d.id); else n.add(d.id) } return n })}
+                      aria-label={`Select all in ${g}`}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-[0.04em] text-primary-dark uppercase">{g}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{picked}/{docs.length}</span>
+                  </label>
                   <ul>
                     {docs.map((d) => (
                       <li key={d.id}>
                         <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/60">
                           <Checkbox checked={attachments.has(d.id)} onCheckedChange={() => toggle(d.id)} />
-                          <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                          <FileTypeIcon name={d.name} className="size-5" />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm">{d.name}</span>
-                            <span className="block text-xs text-muted-foreground">{d.category} · {formatFileSize(d.sizeKb)}</span>
+                            <span className="flex items-center gap-1.5 pt-0.5 text-xs text-muted-foreground"><span className={cn("rounded px-1.5 py-0.5 text-[11px] font-medium", docCategoryCls(d.category))}>{d.category}</span>{formatFileSize(d.sizeKb)}</span>
                           </span>
                         </label>
                       </li>
                     ))}
                   </ul>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </fieldset>
       </div>
-    </DetailDrawer>
+        </div>
+        <DialogFooter className={DIALOG_MOBILE_FOOTER}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={sending}>Cancel</Button>
+          <Button onClick={submit} disabled={sending || !!smtpDown}>
+            {sending ? <Spinner /> : <Send />} {sendLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

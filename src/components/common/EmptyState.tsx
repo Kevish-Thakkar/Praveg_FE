@@ -1,10 +1,10 @@
-import type { LucideIcon } from "lucide-react"
+import type { AppIcon } from "@/components/icons"
 import type { ReactNode } from "react"
-import { Inbox } from "lucide-react"
+import { Inbox } from "@/components/icons"
 import { cn } from "@/lib/utils"
 
 interface EmptyStateProps {
-  icon?: LucideIcon
+  icon?: AppIcon
   title: string
   description?: string
   action?: ReactNode

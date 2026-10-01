@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react"
 import { useNavigate } from "react-router-dom"
-import type { LucideIcon } from "lucide-react"
+import type { AppIcon } from "@/components/icons"
 import {
   BellRing, CalendarPlus, CheckCheck, CircleCheck, CircleX, FileUp, Mail, MailPlus, MapPinPlus, Pencil, ReceiptText,
   Send, Tag, UserCheck, UsersRound, BadgeCheck, MessageSquareWarning,
-} from "lucide-react"
+} from "@/components/icons"
 import { usePermission } from "@/components/common/Can"
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog"
 import { PresetComposer } from "@/features/emails/components/PresetComposer"
@@ -27,14 +27,14 @@ type Dialog = "request" | "decision" | "schedule" | "report" | "cvs" | "completi
 export interface ResolvedAction {
   key: CheckpointActionKey
   label: string
-  icon: LucideIcon
+  icon: AppIcon
   run: () => void
   pending?: boolean
   disabled?: boolean
   hint?: string
 }
 
-const META: Record<CheckpointActionKey, { label: string; icon: LucideIcon }> = {
+const META: Record<CheckpointActionKey, { label: string; icon: AppIcon }> = {
   editProject: { label: "Edit details", icon: Pencil },
   requestAvailability: { label: "Request availability", icon: MailPlus },
   recordReplies: { label: "Record replies", icon: UsersRound },

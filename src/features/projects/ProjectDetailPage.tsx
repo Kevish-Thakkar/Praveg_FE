@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { Link, useParams, useSearchParams } from "react-router-dom"
-import { ArrowRight, Ban, Lock, Pencil, Send, Trash2 } from "lucide-react"
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { ArrowRight, Ban, Lock, Pencil, Send, Trash2 } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,6 +22,7 @@ import { ProjectCheckpoint, ProjectWorkflow } from "@/components/workflow/Projec
 import { DocumentsPanel } from "@/features/documents/components/DocumentsPanel"
 import { EmailList } from "@/features/emails/components/EmailList"
 import { useEmails } from "@/features/emails/hooks"
+import { MAILBOX_DATE_HEADER, MailboxTabs, inMailbox, useMailbox } from "@/features/emails/components/Mailbox"
 import { VisitsTable } from "@/features/visits/components/VisitsTable"
 import { useActivity } from "@/features/dashboard/hooks"
 import { useTabParam } from "@/hooks/use-tab-param"
@@ -62,14 +63,16 @@ export function ProjectDetailPage() {
 /**
  * Project workspace — everything about one job.
  * Compact header (what, who, when) → tabs. The workflow checkpoints are on Overview;
- * each opens an overlay with its details and actions, so there is no separate action bar.
+ * the one in progress opens its step page; the others open an overlay with their details and actions.
  */
 function ProjectWorkspace({ p, candidates }: { p: ProjectRow; candidates: CandidateRow[] }) {
   const role = useRole()
+  const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const [tab, setTab] = useTabParam(TABS, "overview")
   const { tracks, all, pos, visits, allPOs } = useProjectTracks(p, candidates)
   const emails = useEmails({ projectId: p.id })
+  const [mailbox, setMailbox] = useMailbox()
   const activity = useActivity({ projectId: p.id, limit: 200 })
   const canSeeCandidates = usePermission("candidates")
   const canSeeVisits = usePermission("visits")
@@ -105,7 +108,7 @@ function ProjectWorkspace({ p, candidates }: { p: ProjectRow; candidates: Candid
   ]
   const visibleTab = tabs.find((t) => t.id === tab && t.show) ? tab : "overview"
   const due = p.insight.due
-  const openStep = (c: Checkpoint) => setOverlay(c.id)
+  const openStep = (c: Checkpoint) => (c.status === "in_progress" ? navigate(`/projects/${p.id}/steps/${c.id}`) : setOverlay(c.id))
 
   return (
     <PageContainer className="space-y-5">
@@ -154,7 +157,7 @@ function ProjectWorkspace({ p, candidates }: { p: ProjectRow; candidates: Candid
           <TabsList variant="line" className="h-10 gap-6 p-0">
             {tabs.filter((t) => t.show).map((t) => (
               <TabsTrigger key={t.id} value={t.id} className="h-10 flex-none px-0.5 text-sm after:!bottom-0">
-                {t.label}{t.count ? <span className="rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">{t.count}</span> : null}
+                {t.label}{t.count ? <span className="inline-flex h-5 min-w-5 items-center justify-center rounded bg-muted px-1.5 text-[11px] leading-none font-semibold text-muted-foreground tabular-nums">{t.count}</span> : null}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -238,16 +241,19 @@ function ProjectWorkspace({ p, candidates }: { p: ProjectRow; candidates: Candid
 
         {canSeeEmails && (
           <TabsContent value="emails" className="space-y-4">
-            <SectionHeader title="Emails" description="Every email sent for this project, including automatic reminders. Attachments can be downloaded." actions={actions.resolve("sendDocuments") && <Button size="sm" variant="outline" onClick={actions.resolve("sendDocuments")!.run}><Send /> Send documents</Button>} />
+            <SectionHeader title="Emails" description="Replies received and every email sent for this project, including automatic reminders. Open an email to see the conversation and reply." actions={actions.resolve("sendDocuments") && <Button size="sm" variant="outline" onClick={actions.resolve("sendDocuments")!.run}><Send /> Send documents</Button>} />
             <Card className="gap-0 overflow-hidden py-0">
-              {emails.isPending ? <TableSkeleton rows={4} columns={3} /> : emails.isError ? <ErrorState message={emails.error.message} onRetry={() => void emails.refetch()} /> : <EmailList emails={emails.data ?? []} showProject={false} />}
+              <MailboxTabs value={mailbox} onChange={setMailbox} emails={emails.data ?? []} />
+              {emails.isPending ? <TableSkeleton rows={4} columns={3} /> : emails.isError ? <ErrorState message={emails.error.message} onRetry={() => void emails.refetch()} /> : (
+                <EmailList emails={(emails.data ?? []).filter((e) => inMailbox(e, mailbox))} showProject={false} dateHeader={MAILBOX_DATE_HEADER[mailbox]} empty={<EmptyState compact title={mailbox === "inbox" ? "No replies yet" : "No emails sent yet"} description={mailbox === "inbox" ? "Replies from inspectors and the client arrive here." : "Emails for this project are saved here automatically."} />} />
+              )}
             </Card>
           </TabsContent>
         )}
 
         <TabsContent value="documents" className="space-y-4">
           <SectionHeader title="Documents" description="Technical documents, inspector confirmations, reports, out documents and the PO for this job." actions={actions.resolve("sendDocuments") && <Button size="sm" variant="outline" onClick={actions.resolve("sendDocuments")!.run}><Send /> Send to client</Button>} />
-          <DocumentsPanel readOnly={!canUploadDocs && !canBillEdit} entityType="Project" entityId={p.id} categories={["Technical Document", "Inspector Confirmation", "Report", "Out Document", "Purchase Order", "Other"]} title="Project documents" description="Upload several files at once. Files can be attached when emailing the client." />
+          <DocumentsPanel filterable readOnly={!canUploadDocs && !canBillEdit} entityType="Project" entityId={p.id} categories={["Technical Document", "Inspector Confirmation", "Report", "Out Document", "Purchase Order", "Other"]} title="Project documents" description="Upload several files at once. Files can be attached when emailing the client." />
         </TabsContent>
 
         <TabsContent value="activity">

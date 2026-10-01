@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { ReceiptText } from "lucide-react"
+import { ReceiptText } from "@/components/icons"
 import { Card } from "@/components/ui/card"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { PageHeader } from "@/components/layout/PageHeader"

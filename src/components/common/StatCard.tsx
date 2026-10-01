@@ -1,5 +1,5 @@
 import { memo } from "react"
-import type { LucideIcon } from "lucide-react"
+import type { AppIcon } from "@/components/icons"
 import { Link } from "react-router-dom"
 import { cn } from "@/lib/utils"
 
@@ -7,7 +7,7 @@ interface StatCardProps {
   label: string
   value: string | number
   hint?: string
-  icon: LucideIcon
+  icon: AppIcon
   to?: string
   emphasis?: "default" | "attention"
 }

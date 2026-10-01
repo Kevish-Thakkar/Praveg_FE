@@ -1,8 +1,7 @@
-import { Bell, CheckCheck } from "lucide-react"
+import { Bell, CheckCheck } from "@/components/icons"
 import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { EmptyState } from "@/components/common/EmptyState"
 import { useMarkAllNotificationsRead, useMarkNotificationRead, useNotifications } from "@/features/reminders/hooks"
 import { formatDateTime } from "@/lib/dates"
@@ -25,7 +24,7 @@ export function NotificationsPopover() {
           {unread > 0 && <span className="absolute top-1.5 right-1.5 flex size-4 items-center justify-center rounded-full bg-danger text-[10px] font-semibold text-white">{unread}</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[min(24rem,calc(100vw-2rem))] p-0">
+      <PopoverContent align="end" className="flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <p className="font-semibold">Notifications</p>
           <Button variant="ghost" size="sm" disabled={!unread || markAll.isPending} onClick={() => markAll.mutate()}>
@@ -35,9 +34,9 @@ export function NotificationsPopover() {
         {data.length === 0 ? (
           <EmptyState compact icon={Bell} title="You're all caught up" description="Reminders, inspector activity and email updates appear here." />
         ) : (
-          <ScrollArea className="max-h-96">
+          <div className="h-[min(26rem,calc(100dvh-12rem))] overflow-y-auto overscroll-contain">
             <ul className="divide-y">
-              {data.slice(0, 8).map((n) => (
+              {data.slice(0, 20).map((n) => (
                 <li key={n.id}>
                   <button
                     type="button"
@@ -58,7 +57,7 @@ export function NotificationsPopover() {
                 </li>
               ))}
             </ul>
-          </ScrollArea>
+          </div>
         )}
         <div className="border-t p-2">
           <Button asChild variant="ghost" size="sm" className="w-full" onClick={() => setOpen(false)}>

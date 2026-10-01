@@ -1,6 +1,6 @@
 import { memo } from "react"
 import { Link } from "react-router-dom"
-import { ArrowRight, CalendarClock, CheckCircle2, CircleAlert, CircleDot, Clock, Users } from "lucide-react"
+import { ArrowRight, CalendarClock, CheckCircle2, CircleAlert, CircleDot, Clock, Users } from "@/components/icons"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/common/EmptyState"

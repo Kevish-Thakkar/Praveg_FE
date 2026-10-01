@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { DatePicker } from "@/components/forms/DatePicker"
 import { parseISO } from "date-fns"
-import { BellRing, CalendarCheck, Handshake, MessagesSquare } from "lucide-react"
+import { BellRing, CalendarCheck, Handshake, MessagesSquare } from "@/components/icons"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Calendar } from "@/components/ui/calendar"

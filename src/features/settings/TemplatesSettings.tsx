@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { Mail, Pencil } from "lucide-react"
+import { Mail, Pencil } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"

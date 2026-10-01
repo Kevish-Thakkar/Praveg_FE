@@ -248,3 +248,13 @@
 @utility animate-float {
   animation: float-slow 6s ease-in-out infinite;
 }
+
+/* Phosphor icons read light at 16px: every icon that would render at size-4 (its own class or its
+   button / menu / sidebar parent) renders at 18px instead. Unlayered so it wins over the utilities;
+   other sizes are left alone. */
+svg.duo-icon.size-4,
+[class*="[&_svg:not([class*='size-'])]:size-4"]:not([class*="[&_svg:not([class*='size-'])]:size-3"]) svg.duo-icon:not([class*="size-"]),
+[class*="[&>svg]:size-4"] > svg.duo-icon:not([class*="size-"]) {
+  width: 18px;
+  height: 18px;
+}

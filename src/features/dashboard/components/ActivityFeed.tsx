@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { History } from "lucide-react"
+import { History } from "@/components/icons"
 import { EmptyState } from "@/components/common/EmptyState"
 import { ErrorState } from "@/components/feedback/ErrorState"
 import { Skeleton } from "@/components/ui/skeleton"

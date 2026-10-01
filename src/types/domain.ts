@@ -379,12 +379,23 @@ export type EmailKind =
   | "Payment Reminder"
   | "Payment Follow-up"
   | "General";
-export type EmailStatus = "Scheduled" | "Sent" | "Failed";
+export type EmailStatus = "Scheduled" | "Sent" | "Failed" | "Received";
+export type EmailDirection = "Outbound" | "Inbound";
 
 export interface EmailRecord {
   id: ID;
   kind: EmailKind;
   projectId: ID | null;
+  /** missing on older records = "Outbound" */
+  direction?: EmailDirection;
+  /** conversation the message belongs to; missing = its own id */
+  threadId?: ID;
+  /** message this one replies to */
+  inReplyTo?: ID | null;
+  /** sender address; outbound mail goes from the SMTP sender */
+  from?: string;
+  /** inbound only: opened by a user */
+  read?: boolean;
   subject: string;
   to: string[];
   cc: string[];

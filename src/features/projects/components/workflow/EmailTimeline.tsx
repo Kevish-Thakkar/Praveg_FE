@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { Clock, Mail, Paperclip, Zap } from "lucide-react"
+import { Clock, Mail, Paperclip, Zap } from "@/components/icons"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/common/EmptyState"
 import { StatusBadge } from "@/components/common/StatusBadge"

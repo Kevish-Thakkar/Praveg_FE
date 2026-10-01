@@ -1,5 +1,5 @@
-import type { LucideIcon } from "lucide-react"
-import { MoreHorizontal } from "lucide-react"
+import type { AppIcon } from "@/components/icons"
+import { MoreHorizontal } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -7,7 +7,7 @@ import {
 
 export interface ActionItemDef {
   label: string
-  icon?: LucideIcon
+  icon?: AppIcon
   onSelect: () => void
   destructive?: boolean
   disabled?: boolean

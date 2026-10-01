@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { MapPin, Pencil, Plus, Trash2, Truck } from "lucide-react"
+import { MapPin, Pencil, Plus, Trash2, Truck } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { PageContainer } from "@/components/layout/PageContainer"

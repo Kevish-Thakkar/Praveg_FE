@@ -1,4 +1,4 @@
-import { MailPlus, Send } from "lucide-react"
+import { MailPlus, Send } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { SectionHeader } from "@/components/common/SectionHeader"

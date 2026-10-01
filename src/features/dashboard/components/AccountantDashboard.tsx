@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { BadgeIndianRupee, FileUp, Tag } from "lucide-react"
+import { BadgeIndianRupee, FileUp, Tag } from "@/components/icons"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ChartsToolbar, useCountryFilter } from "@/components/charts/CountryFilter"

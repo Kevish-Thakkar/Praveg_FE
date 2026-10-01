@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { Bell, Building2, CalendarClock, FileSearch, HardHat, Inbox, MailQuestion, Plus, Send, Users } from "lucide-react"
+import { Bell, Building2, CalendarClock, FileSearch, HardHat, Inbox, MailQuestion, Plus, Send, Users } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageContainer } from "@/components/layout/PageContainer"

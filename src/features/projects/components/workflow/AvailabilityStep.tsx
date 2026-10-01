@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react"
-import { Check, FileText, MailPlus, Trash2, X } from "lucide-react"
+import { Check, FileText, MailPlus, Trash2, X } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import { UserAvatar } from "@/components/common/UserAvatar"
 import { EmptyState } from "@/components/common/EmptyState"
 import { Spinner } from "@/components/feedback/LoadingState"
+import { DIALOG_MOBILE_BODY, DIALOG_MOBILE_FOOTER, DIALOG_MOBILE_FULLSCREEN } from "@/components/dialogs/FormDialog"
 import { formatDateTime } from "@/lib/dates"
+import { cn } from "@/lib/utils"
 import type { ProjectRow } from "@/services"
 import type { CandidateRow } from "./types"
 import { InspectorMatches } from "../InspectorMatches"
@@ -18,15 +20,15 @@ export function RequestInspectorsDialog({ p, open, onOpenChange }: { p: ProjectR
   useEffect(() => { if (open) setSelected(new Set()) }, [open])
   return (
     <Dialog open={open} onOpenChange={(o) => !req.isPending && onOpenChange(o)}>
-      <DialogContent className="max-h-[92dvh] gap-0 overflow-hidden p-0 sm:max-w-3xl">
-        <DialogHeader className="border-b px-6 pt-6 pb-4">
+      <DialogContent className={cn(DIALOG_MOBILE_FULLSCREEN, "sm:max-w-3xl")}>
+        <DialogHeader className="border-b px-4 pt-5 pb-4 pr-12 text-left sm:px-6 sm:pt-6">
           <DialogTitle>Request inspector availability</DialogTitle>
           <DialogDescription>Each selected inspector receives the availability & confirmation email for {p.code}.</DialogDescription>
         </DialogHeader>
-        <div className="max-h-[calc(92dvh-10rem)] overflow-y-auto px-6 py-5">
+        <div className={DIALOG_MOBILE_BODY}>
           <InspectorMatches site={p.site} skills={p.requiredSkills} projectId={p.id} selected={selected} onSelectedChange={setSelected} />
         </div>
-        <DialogFooter className="border-t px-6 py-4">
+        <DialogFooter className={DIALOG_MOBILE_FOOTER}>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={req.isPending}>Cancel</Button>
           <Button disabled={!selected.size || req.isPending} onClick={() => req.mutate({ projectId: p.id, inspectorIds: [...selected] }, { onSuccess: () => onOpenChange(false) })}>
             {req.isPending ? <Spinner /> : <MailPlus />} Send to {selected.size || ""} inspector{selected.size === 1 ? "" : "s"}

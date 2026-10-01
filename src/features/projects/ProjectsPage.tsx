@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
-import { ArrowRight, BriefcaseBusiness, CalendarClock, Plus } from "lucide-react"
+import { ArrowRight, BriefcaseBusiness, CalendarClock, Plus } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { PageContainer } from "@/components/layout/PageContainer"

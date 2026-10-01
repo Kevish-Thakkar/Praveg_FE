@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react"
-import { Download, FileText, Lock, Trash2 } from "lucide-react"
+import { Download, FileText, Lock, Trash2 } from "@/components/icons"
 import { DataTable, type Column } from "@/components/tables/DataTable"
 import { EmptyState } from "@/components/common/EmptyState"
 import { StatusBadge } from "@/components/common/StatusBadge"
@@ -8,6 +8,9 @@ import { TextLink } from "@/components/common/TextLink"
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog"
 import { formatDateTime } from "@/lib/dates"
 import { formatFileSize } from "@/lib/format"
+import { fileKind } from "@/lib/file-type"
+import { DOC_CATEGORY_CLS } from "@/lib/category-colors"
+import { FileTypeIcon } from "@/components/common/FileTypeIcon"
 import type { DocumentRow } from "@/services"
 import { useDeleteDocument, useDownloadDocument } from "../hooks"
 import type { ReactNode } from "react"
@@ -26,7 +29,7 @@ interface DocumentsTableProps {
 const FileName = memo(function FileName({ d }: { d: DocumentRow }) {
   return (
     <div className="flex min-w-0 items-center gap-2.5">
-      <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+      <FileTypeIcon name={d.name} className="size-5" />
       <div className="min-w-0">
         <p className="truncate font-medium">{d.name}</p>
         <p className="text-xs text-muted-foreground">{formatFileSize(d.sizeKb)}</p>
@@ -44,7 +47,8 @@ export function DocumentsTable({ rows, loading, canDelete, showEntity, empty, se
   const columns = useMemo<Column<DocumentRow>[]>(
     () => [
       { id: "name", header: "Document", sortValue: (d) => d.name, cell: (d) => <FileName d={d} />, className: "max-w-[22rem]" },
-      { id: "category", header: "Category", sortValue: (d) => d.category, cell: (d) => <StatusBadge status={d.category} tone="info" dot={false} /> },
+      { id: "type", header: "Type", sortValue: (d) => fileKind(d.name), exportValue: (d) => fileKind(d.name), cell: (d) => <span className="text-sm whitespace-nowrap text-muted-foreground">{fileKind(d.name)}</span>, hideBelow: "md" },
+      { id: "category", header: "Category", sortValue: (d) => d.category, cell: (d) => <StatusBadge status={d.category} className={DOC_CATEGORY_CLS[d.category]} dot={false} /> },
       ...(showEntity
         ? [{ id: "entity", header: "Linked to", cell: (d: DocumentRow) => (d.entityLink ? <TextLink to={d.entityLink} className="line-clamp-1">{d.entityLabel}</TextLink> : <span className="text-muted-foreground">{d.entityLabel}</span>), hideBelow: "lg" as const, className: "max-w-[18rem]" }]
         : []),

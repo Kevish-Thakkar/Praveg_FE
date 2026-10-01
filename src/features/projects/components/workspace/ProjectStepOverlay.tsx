@@ -1,14 +1,17 @@
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { CheckpointOverlay } from "@/components/workflow/CheckpointOverlay"
-import type { TimelineEvent } from "@/components/common/ActivityTimeline"
-import { useActivity } from "@/features/dashboard/hooks"
-import { TRACK_LABEL, currentIndex, type WorkflowTrack } from "@/lib/project-workflow"
+import { CheckpointOverlay, type OverlayAction } from "@/components/workflow/CheckpointOverlay"
+import { TRACK_LABEL, currentIndex, type Checkpoint, type WorkflowTrack } from "@/lib/project-workflow"
 import type { ProjectRow } from "@/services"
 import type { CandidateRow } from "../workflow/types"
 import { useCandidates, useProject } from "../../hooks"
 import { useProjectActions } from "./useProjectActions"
 import { useProjectTracks } from "./useProjectTracks"
+
+/** Checkpoint actions in the shape the overlay and the step details page render. */
+export function toOverlayActions(actions: ReturnType<typeof useProjectActions>, c: Checkpoint | null): OverlayAction[] {
+  return c ? actions.resolveAll(c.actions).map((a, i) => ({ key: a.key, label: a.label, icon: a.icon, onRun: a.run, primary: i === 0, pending: a.pending, disabled: a.disabled, hint: a.hint, destructive: a.key === "interviewFailed" })) : []
+}
 
 /**
  * The checkpoint overlay plus every dialog its actions open. Used by the project page and by the
@@ -25,12 +28,7 @@ export function ProjectStepOverlay({ p, candidates, stepId, onStep, onClose, onG
 }) {
   const { all, pos } = useProjectTracks(p, candidates)
   const actions = useProjectActions({ p, candidates, pos, onGoTo })
-  const activity = useActivity({ projectId: p.id, limit: 200 })
   const open = all.find((c) => c.id === stepId) ?? null
-  const events: TimelineEvent[] = useMemo(
-    () => (open ? (activity.data ?? []).filter((a) => open.activity.test(a.message)).map((a) => ({ id: a.id, at: a.at, message: a.message, actorName: a.actorName })) : []),
-    [open, activity.data],
-  )
   return (
     <>
       <CheckpointOverlay
@@ -40,8 +38,8 @@ export function ProjectStepOverlay({ p, candidates, stepId, onStep, onClose, onG
         open={!!open}
         onClose={onClose}
         onNavigate={(id) => all.some((c) => c.id === id) && onStep(id)}
-        activity={events}
-        actions={open ? actions.resolveAll(open.actions).map((a, i) => ({ key: a.key, label: a.label, icon: a.icon, onRun: a.run, primary: i === 0, pending: a.pending, disabled: a.disabled, hint: a.hint, destructive: a.key === "interviewFailed" })) : []}
+        actions={toOverlayActions(actions, open)}
+        detailsHref={open ? `/projects/${p.id}/steps/${open.id}` : undefined}
       />
       {actions.dialogs}
     </>

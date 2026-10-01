@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react"
 import type { Control, FieldPath, FieldValues } from "react-hook-form"
 import { format, parseISO } from "date-fns"
-import { Check, ChevronsUpDown, Plus, X } from "lucide-react"
+import { Check, ChevronsUpDown, Plus, X } from "@/components/icons"
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"

@@ -1,4 +1,4 @@
-import { ReceiptText } from "lucide-react"
+import { ReceiptText } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/common/EmptyState"
 import { Money } from "@/components/common/Money"

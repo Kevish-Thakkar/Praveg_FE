@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { Check, Minus, OctagonAlert, Pause, X } from "lucide-react"
+import { Check, Minus, OctagonAlert, Pause, X } from "@/components/icons"
 import { cn } from "@/lib/utils"
 import type { CheckpointStatus, SubStepStatus } from "@/lib/project-workflow"
 

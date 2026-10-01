@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { CheckCircle2, CircleAlert, HardHat, Plus } from "lucide-react"
+import { CheckCircle2, CircleAlert, HardHat, Plus } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"

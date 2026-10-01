@@ -71,10 +71,31 @@ const eSeeds: ES[] = [
   ["eml_009", "Payment Reminder", "prj_009", "Payment reminder — INV-IN-2026-0311", ["procurement@kaveripetrochem.in", "anil.kulkarni@kaveripetrochem.in"], -12, 10, "Sent", false],
   ["eml_010", "Completion", "prj_005", "Job completed — HP pump performance & NPSH test witness (PRJ-2026-053)", ["sourcing@narmadawater.in", "kavita.joshi@narmadawater.in"], -20, 17, "Sent", false, ["doc_009"]],
 ]
-export const emails: EmailRecord[] = eSeeds.map(([id, kind, projectId, subject, to, off, h, status, automatic, attachmentIds = []]) => ({
-  id, kind, projectId, subject, to, cc: [], bcc: [], body: "Dear Sir/Madam,\n\nPlease find the details as discussed.\n\nRegards,\nPraveg Certification Services",
+const SENDER = "operations@praveg.com"
+const outboundEmails: EmailRecord[] = eSeeds.map(([id, kind, projectId, subject, to, off, h, status, automatic, attachmentIds = []]) => ({
+  id, kind, projectId, direction: "Outbound", threadId: id, inReplyTo: null, from: SENDER, subject, to, cc: [], bcc: [], body: "Dear Sir/Madam,\n\nPlease find the details as discussed.\n\nRegards,\nPraveg Certification Services",
   attachmentIds, templateId: null, sentById: automatic ? "system" : "usr_003", sentAt: dt(off, h), status, automatic,
 }))
+
+/** Replies received from inspectors and clients, threaded onto the email they answer. */
+type IS = [id: string, replyTo: string, from: string, body: string, off: number, h: number, read: boolean]
+const inSeeds: IS[] = [
+  ["eml_in_001", "eml_001", "vijay.raghavan@inspector-mail.com", "Dear Praveg team,\n\nI am available for the valve FAT on the requested dates. My day rate is as per our last engagement.\n\nPlease share the ITP and the vendor contact.\n\nRegards,\nVijay Raghavan", -1, 14, false],
+  ["eml_in_002", "eml_001", "harpreet.singh.bedi@inspector-mail.com", "Hello,\n\nUnfortunately I am on another assignment that week and won't be able to take this job.\n\nThanks,\nHarpreet", -1, 17, true],
+  ["eml_in_003", "eml_002", "khalid.almansoori@alsafwa-offshore.ae", "Dear Team,\n\nThank you for the CVs. We would like to proceed with the first candidate. Please send the confirmation and the job schedule.\n\nBest regards,\nKhalid Al Mansoori\nSupplier Quality Lead", -1, 11, false],
+  ["eml_in_004", "eml_005", "imran.shaikh@inspector-mail.com", "Thank you for confirming. I will be on site on the job date at 08:00.\n\nCould you please share the latest revision of the ITP?\n\nRegards,\nImran Shaikh", -4, 15, true],
+  ["eml_in_005", "eml_009", "anil.kulkarni@kaveripetrochem.in", "Dear Praveg team,\n\nNoted. The invoice has been approved and payment is scheduled in this week's run.\n\nRegards,\nAnil Kulkarni", -11, 12, true],
+]
+export const inboundEmails: EmailRecord[] = inSeeds.map(([id, replyTo, from, body, off, h, read]) => {
+  const parent = outboundEmails.find((e) => e.id === replyTo)!
+  return {
+    id, kind: parent.kind, projectId: parent.projectId, direction: "Inbound", threadId: parent.id, inReplyTo: parent.id, from, read,
+    subject: `Re: ${parent.subject}`, to: [SENDER], cc: [], bcc: [], body, attachmentIds: [], templateId: null,
+    sentById: "external", sentAt: dt(off, h), status: "Received", automatic: false,
+  }
+})
+
+export const emails: EmailRecord[] = [...outboundEmails, ...inboundEmails]
 
 type RS = [id: string, type: Reminder["type"], title: string, projectId: string | null, inspectorId: string | null, off: number, assignee: string, status: Reminder["status"]]
 const rSeeds: RS[] = [

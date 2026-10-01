@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft } from "@/components/icons"
 import { Link } from "react-router-dom"
 import { Breadcrumbs, type Crumb } from "@/components/navigation/Breadcrumbs"
 import { Button } from "@/components/ui/button"

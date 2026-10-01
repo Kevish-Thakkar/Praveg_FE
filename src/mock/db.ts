@@ -66,7 +66,12 @@ function seed(): Database {
 function load(): Database {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw) as Database
+    if (raw) {
+      const saved = JSON.parse(raw) as Database
+      // data saved before the mailbox existed has no inbound mail — add the sample replies
+      if (!saved.emails.some((e) => e.direction === "Inbound")) saved.emails.push(...structuredClone(c.inboundEmails))
+      return saved
+    }
   } catch {
     /* storage unavailable — fall back to seed */
   }

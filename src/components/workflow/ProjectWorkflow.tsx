@@ -1,5 +1,5 @@
 import { createContext, memo, useContext, type ReactNode } from "react"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight } from "@/components/icons"
 import { formatDate } from "@/lib/dates"
 import { cn } from "@/lib/utils"
 import { currentIndex, statusText, type Checkpoint } from "@/lib/project-workflow"
@@ -91,8 +91,8 @@ export const ProjectCheckpoint = memo(function ProjectCheckpoint({ checkpoint: c
       >
         <CheckpointNode status={c.status} progress={c.progress} number={index + 1} size="md" current={current} className="transition group-hover:scale-105" />
         {/* name only — the node shows the state; the step that needs attention also shows its status */}
-        <span className="min-w-0 pb-3 md:pb-0">
-          <span className={cn("block truncate text-[13px] leading-tight font-medium group-hover:text-primary-strong", c.status === "not_started" || c.status === "skipped" ? "text-muted-foreground" : "text-foreground", current && "font-semibold")}>{c.title}</span>
+        <span className="min-w-0 pb-3 md:w-full md:pb-0">
+          <span className={cn("block truncate text-[13px] leading-tight font-medium md:line-clamp-2 md:break-words md:whitespace-normal md:text-balance group-hover:text-primary-strong", c.status === "not_started" || c.status === "skipped" ? "text-muted-foreground" : "text-foreground", current && "font-semibold")}>{c.title}</span>
           {current && c.status !== "completed" && <span className={cn("block text-[11px] font-medium", TONE[c.status])}>{statusText(c)}</span>}
         </span>
       </button>

@@ -1,13 +1,13 @@
-import type { LucideIcon } from "lucide-react"
+import type { AppIcon } from "@/components/icons"
 import {
   Bell, BriefcaseBusiness, Building2, CalendarDays, Clock3, FileBarChart, FolderOpen, HardHat, LayoutDashboard, Mail, Settings, Truck, Wallet,
-} from "lucide-react"
+} from "@/components/icons"
 import type { Module } from "./permissions"
 
 export interface NavItem {
   label: string
   to: string
-  icon: LucideIcon
+  icon: AppIcon
   module: Module
 }
 

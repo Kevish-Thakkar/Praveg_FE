@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight } from "@/components/icons"
 import { TONE_CLASSES } from "@/constants/status"
 import { formatDate } from "@/lib/dates"
 import { cn } from "@/lib/utils"

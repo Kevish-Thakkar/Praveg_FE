@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { CheckCircle2, CircleAlert, Globe2, MapPin, SearchX } from "lucide-react"
+import { CheckCircle2, CircleAlert, Globe2, MapPin, SearchX } from "@/components/icons"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"

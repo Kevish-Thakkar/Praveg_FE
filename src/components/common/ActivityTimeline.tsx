@@ -1,6 +1,6 @@
 import { memo } from "react"
 import { isToday, isYesterday, parseISO } from "date-fns"
-import { History } from "lucide-react"
+import { History } from "@/components/icons"
 import { EmptyState } from "@/components/common/EmptyState"
 import { formatDate } from "@/lib/dates"
 import { cn } from "@/lib/utils"

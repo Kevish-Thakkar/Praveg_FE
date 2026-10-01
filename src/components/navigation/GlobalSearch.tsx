@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Search } from "lucide-react"
+import { Search } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { useSearchIndex } from "@/features/dashboard/hooks"
@@ -46,12 +46,18 @@ export function GlobalSearch() {
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)} className="h-10 w-10 justify-start gap-2 px-0 text-muted-foreground sm:w-56 sm:px-3 lg:w-64 xl:w-80" aria-label="Search (Ctrl+K)">
-        <Search className="mx-auto sm:mx-0" />
-        <span className="hidden sm:inline">Search projects, inspectors…</span>
-        <kbd className="ml-auto hidden rounded border bg-muted px-1.5 font-mono text-[10px] xl:inline">Ctrl K</kbd>
+      <Button variant="outline" onClick={() => setOpen(true)} className="h-10 w-10 min-w-0 shrink-0 justify-start gap-2 px-0 font-normal text-muted-foreground sm:w-auto sm:max-w-[35rem] sm:flex-1 sm:shrink sm:px-3" aria-label="Search (Ctrl+K)">
+        <Search className="mx-auto shrink-0 sm:mx-0" />
+        <span className="hidden min-w-0 truncate sm:inline">Search projects, inspectors, clients and vendors…</span>
+        <kbd className="ml-auto hidden shrink-0 rounded border bg-muted px-1.5 font-mono text-[10px] md:inline">Ctrl K</kbd>
       </Button>
-      <CommandDialog open={open} onOpenChange={setOpen} title="Search" description="Search projects, inspectors, clients and vendors">
+      <CommandDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Search"
+        description="Search projects, inspectors, clients and vendors"
+        className="block h-dvh max-h-dvh w-full max-w-full rounded-none border-0 sm:h-auto sm:max-w-xl sm:rounded-lg sm:border [&_[data-slot=command-input-wrapper]]:pr-10 max-sm:[&_[data-slot=command-list]]:max-h-[calc(100dvh-3rem)]"
+      >
         <CommandInput placeholder="Type to search…" />
         <CommandList>
           <CommandEmpty>{isPending ? "Loading…" : "No results found."}</CommandEmpty>

@@ -1,4 +1,4 @@
-import { AlarmClock, CircleAlert, FileClock, Hourglass, Wallet } from "lucide-react"
+import { AlarmClock, CircleAlert, FileClock, Hourglass, Wallet } from "@/components/icons"
 import { IncomeTile } from "@/components/common/IncomeTile"
 import type { IncomeCurrency, IncomeFigures } from "@/services"
 import type { Country } from "@/types/domain"

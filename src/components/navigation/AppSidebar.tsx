@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/sidebar"
 import { NAV, NAV_FOOTER, type NavItem } from "@/constants/navigation"
 import { BrandLogo } from "@/components/common/BrandLogo"
+import { DuotoneIcons } from "@/components/common/DuotoneIcons"
 import { can } from "@/constants/permissions"
 import { useRole } from "@/store/session.store"
 import { useReminders } from "@/features/reminders/hooks"
@@ -25,6 +26,7 @@ export const AppSidebar = memo(function AppSidebar() {
   const dueCount = useOverdueCount(can(role, "reminders"))
 
   return (
+    <DuotoneIcons>
     <Sidebar collapsible="icon" aria-label="Main navigation">
       <SidebarHeader className="h-14 justify-center border-b">
         <div className="flex items-center gap-2.5 px-1 group-data-[collapsible=icon]:px-0">
@@ -60,6 +62,7 @@ export const AppSidebar = memo(function AppSidebar() {
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
+    </DuotoneIcons>
   )
 })
 

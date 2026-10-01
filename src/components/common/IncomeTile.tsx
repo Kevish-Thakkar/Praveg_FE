@@ -1,5 +1,5 @@
 import { memo } from "react"
-import type { LucideIcon } from "lucide-react"
+import type { AppIcon } from "@/components/icons"
 import { Link } from "react-router-dom"
 import { formatMoney } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -10,7 +10,7 @@ import { KPI_THEME, type KpiTheme } from "./KpiTile"
 
 interface IncomeTileProps {
   label: string
-  icon: LucideIcon
+  icon: AppIcon
   theme: KpiTheme
   inr: Figure
   aed: Figure

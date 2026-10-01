@@ -18,7 +18,7 @@ import { formatMoney, toFileMeta } from "@/lib/format"
 import { addDays, type BillingRow, type ProjectRow } from "@/services"
 import { useBilling, useConfirmPayment, useSendPaymentEmail, useUploadInvoice } from "../hooks"
 import { usePOs } from "@/features/execution/hooks"
-import { ReceiptText } from "lucide-react"
+import { ReceiptText } from "@/components/icons"
 import { cn } from "@/lib/utils"
 
 /**

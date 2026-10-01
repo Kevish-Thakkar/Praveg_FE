@@ -1,4 +1,4 @@
-import { Check, Minus } from "lucide-react"
+import { Check, Minus } from "@/components/icons"
 import { Card } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { SectionHeader } from "@/components/common/SectionHeader"

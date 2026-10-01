@@ -35,7 +35,8 @@ function toRow(d: DocumentFile): DocumentRow {
 }
 
 export interface UploadInput {
-  files: { name: string; sizeKb: number; mimeType: string }[]
+  /** a file's own category overrides the batch category */
+  files: { name: string; sizeKb: number; mimeType: string; category?: DocumentCategory }[]
   category: DocumentCategory
   entityType: DocumentEntity
   entityId: string
@@ -60,13 +61,14 @@ export const documentService = {
       if (oversize) throw new ApiError(`${oversize.name} exceeds the 25 MB limit`, 413)
       const now = new Date().toISOString()
       const created = input.files.map<DocumentFile>((f) => ({
-        id: newId("doc"), name: f.name, category: input.category, entityType: input.entityType, entityId: input.entityId,
+        id: newId("doc"), name: f.name, category: f.category ?? input.category, entityType: input.entityType, entityId: input.entityId,
         sizeKb: f.sizeKb, mimeType: f.mimeType, access: input.access,
         uploadedById: currentUserId(), uploadedAt: now,
       }))
       db.documents.unshift(...created)
       const projectId = input.entityType === "Project" ? input.entityId : null
-      logActivity("Document", created[0]!.id, projectId, `Uploaded ${created.length} ${input.category.toLowerCase()} file(s)`)
+      const cats = [...new Set(created.map((d) => d.category.toLowerCase()))]
+      logActivity("Document", created[0]!.id, projectId, `Uploaded ${created.length} ${cats.length === 1 ? cats[0] : cats.join(", ")} file(s)`)
       return created.map(toRow)
     }, { mutate: true }),
   remove: (id: string) =>

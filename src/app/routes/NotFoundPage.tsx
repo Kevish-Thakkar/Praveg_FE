@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { Compass } from "lucide-react"
+import { Compass } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/common/EmptyState"
 import { PageContainer } from "@/components/layout/PageContainer"

@@ -10,7 +10,7 @@ import { DetailSkeleton } from "@/components/feedback/LoadingState"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { useSessionStore } from "@/store/session.store"
 import { useDemoStore } from "@/store/demo.store"
-import { FlaskConical } from "lucide-react"
+import { FlaskConical } from "@/components/icons"
 
 export function AppLayout() {
   const user = useSessionStore((s) => s.user)

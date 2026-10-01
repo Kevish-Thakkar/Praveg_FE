@@ -4,7 +4,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   MoreHorizontalIcon,
-} from "lucide-react"
+} from "@/components/icons"
 
 import { buttonVariants, type Button } from "@/components/ui/button"
 

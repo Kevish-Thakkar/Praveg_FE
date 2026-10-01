@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { ArrowRight, BadgeCheck } from "lucide-react"
+import { ArrowRight, BadgeCheck } from "@/components/icons"
 import { Money } from "@/components/common/Money"
 import { TONE_CLASSES } from "@/constants/status"
 import { formatDate } from "@/lib/dates"

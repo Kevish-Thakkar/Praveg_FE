@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Cloud, Mail, MapPinned, MessageSquareText, PlugZap, Unplug } from "lucide-react"
+import { Cloud, Mail, MapPinned, MessageSquareText, PlugZap, Unplug } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"

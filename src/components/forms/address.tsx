@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useWatch, type Control, type FieldValues, type Path, type UseFormSetValue } from "react-hook-form"
 import { z } from "zod"
-import { ExternalLink, MapPin } from "lucide-react"
+import { ExternalLink, MapPin } from "@/components/icons"
 import { CITY_COORDS, COUNTRIES, STATES, formatAddress, geocode, mapEmbedUrl } from "@/constants/geo"
 import { ComboboxCreatableField, FormGrid, SelectField, TextField, TextareaField } from "./fields"
 import type { Address, Country } from "@/types/domain"
