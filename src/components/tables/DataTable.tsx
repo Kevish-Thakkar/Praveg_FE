@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState, type ReactNode } from "react"
+import { Fragment, memo, useCallback, useMemo, useState, type ReactNode } from "react"
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from "@/components/icons"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -44,6 +44,14 @@ interface DataTableProps<T> {
    * and only the rows scroll (pagination stays visible below).
    */
   fill?: boolean
+  /** Split rows into labelled sections. Sections follow `order` (unknown keys last); rows keep the table sort inside a section. */
+  group?: TableGroup<T>
+}
+
+export interface TableGroup<T> {
+  key: (row: T) => string
+  order?: readonly string[]
+  header: (key: string, count: number) => ReactNode
 }
 
 const HIDE: Record<NonNullable<Column<unknown>["hideBelow"]>, string> = {
@@ -91,7 +99,7 @@ const Row = memo(RowInner) as typeof RowInner
 
 export function DataTable<T>({
   rows, columns: allColumns, getRowId, loading, onRowClick, selectable = false, selected, onSelectedChange, isRowSelectable,
-  pageSize: initialPageSize = 10, empty, mobileCard, initialSort, caption, hiddenColumns, fill = false,
+  pageSize: initialPageSize = 10, empty, mobileCard, initialSort, caption, hiddenColumns, fill = false, group,
 }: DataTableProps<T>) {
   // reserve room for the pagination bar (~69px) + the page's bottom padding
   const [fillRef, fillHeight] = useFillHeight<HTMLDivElement>(100)
@@ -105,21 +113,37 @@ export function DataTable<T>({
   const setPage = (p: number) => setPageState({ page: p, key: rows.length })
 
   const sorted = useMemo(() => {
-    if (!sort) return rows
-    const col = columns.find((c) => c.id === sort.id)
-    if (!col?.sortValue) return rows
-    const get = col.sortValue
-    return [...rows].sort((a, b) => {
+    const col = sort ? columns.find((c) => c.id === sort.id) : undefined
+    const get = col?.sortValue
+    const out = get && sort ? [...rows].sort((a, b) => {
       const av = get(a) ?? ""
       const bv = get(b) ?? ""
       const r = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv), undefined, { numeric: true })
       return sort.dir === "asc" ? r : -r
+    }) : rows
+    if (!group) return out
+    const order = group.order ?? []
+    const rank = (k: string) => { const i = order.indexOf(k); return i === -1 ? order.length : i }
+    return [...out].sort((a, b) => {
+      const ka = group.key(a), kb = group.key(b)
+      return rank(ka) - rank(kb) || (rank(ka) === order.length ? ka.localeCompare(kb) : 0)
     })
-  }, [rows, columns, sort])
+  }, [rows, columns, sort, group])
+  const groupCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    if (group) for (const r of rows) { const k = group.key(r); m.set(k, (m.get(k) ?? 0) + 1) }
+    return m
+  }, [rows, group])
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize))
   const safePage = Math.min(page, pageCount - 1)
   const pageRows = useMemo(() => sorted.slice(safePage * pageSize, safePage * pageSize + pageSize), [sorted, safePage, pageSize])
+  /** group key to show a section header before this page row, or null */
+  const sectionAt = (i: number) => {
+    if (!group) return null
+    const k = group.key(pageRows[i])
+    return i === 0 || group.key(pageRows[i - 1]) !== k ? k : null
+  }
 
   const selectedSet = selected ?? EMPTY
   const toggle = useCallback(
@@ -153,17 +177,23 @@ export function DataTable<T>({
     <div>
       {mobileCard && (
         <ul className="divide-y divide-border/70 md:hidden">
-          {pageRows.map((r) => (
-            <li key={getRowId(r)}>
-              {onRowClick ? (
-                <button type="button" onClick={() => onRowClick(r)} className="block w-full px-4 py-4 text-left hover:bg-primary-light/40 focus-visible:bg-muted focus-visible:outline-none">
-                  {mobileCard(r)}
-                </button>
-              ) : (
-                <div className="px-4 py-4">{mobileCard(r)}</div>
-              )}
-            </li>
-          ))}
+          {pageRows.map((r, i) => {
+            const section = sectionAt(i)
+            return (
+              <Fragment key={getRowId(r)}>
+                {section !== null && <li className="bg-muted/50 px-4 py-2">{group!.header(section, groupCounts.get(section) ?? 0)}</li>}
+                <li>
+                  {onRowClick ? (
+                    <button type="button" onClick={() => onRowClick(r)} className="block w-full px-4 py-4 text-left hover:bg-primary-light/40 focus-visible:bg-muted focus-visible:outline-none">
+                      {mobileCard(r)}
+                    </button>
+                  ) : (
+                    <div className="px-4 py-4">{mobileCard(r)}</div>
+                  )}
+                </li>
+              </Fragment>
+            )
+          })}
         </ul>
       )}
       <div className={cn(mobileCard && "hidden md:block")}>
@@ -203,20 +233,27 @@ export function DataTable<T>({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pageRows.map((r) => {
+            {pageRows.map((r, i) => {
               const id = getRowId(r)
+              const section = sectionAt(i)
               return (
-                <Row
-                  key={id}
-                  id={id}
-                  row={r}
-                  columns={columns}
-                  selectable={selectable}
-                  canSelect={!isRowSelectable || isRowSelectable(r)}
-                  isSelected={selectedSet.has(id)}
-                  onToggle={toggle}
-                  onRowClick={onRowClick}
-                />
+                <Fragment key={id}>
+                  {section !== null && (
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                      <TableCell colSpan={columns.length + (selectable ? 1 : 0)} className="py-2">{group!.header(section, groupCounts.get(section) ?? 0)}</TableCell>
+                    </TableRow>
+                  )}
+                  <Row
+                    id={id}
+                    row={r}
+                    columns={columns}
+                    selectable={selectable}
+                    canSelect={!isRowSelectable || isRowSelectable(r)}
+                    isSelected={selectedSet.has(id)}
+                    onToggle={toggle}
+                    onRowClick={onRowClick}
+                  />
+                </Fragment>
               )
             })}
           </TableBody>

@@ -24,10 +24,12 @@ interface DocumentsPanelProps {
   readOnly?: boolean
   /** search and category filter above the table */
   filterable?: boolean
+  /** list the files in category sections (ordered like `categories`) */
+  grouped?: boolean
 }
 
 /** Documents attached to one record (project, inspector, client) with upload. */
-export function DocumentsPanel({ entityType, entityId, categories, title = "Documents", description, category, readOnly, filterable }: DocumentsPanelProps) {
+export function DocumentsPanel({ entityType, entityId, categories, title = "Documents", description, category, readOnly, filterable, grouped }: DocumentsPanelProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [catFilter, setCatFilter] = useState<string[]>([])
@@ -78,6 +80,7 @@ export function DocumentsPanel({ entityType, entityId, categories, title = "Docu
           rows={rows}
           loading={q.isPending}
           canDelete={canDelete}
+          groupByCategory={grouped ? categories : undefined}
           empty={filtered
             ? <EmptyState compact title="No documents match" description="Try another category or clear the filters." />
             : <EmptyState compact title="No documents yet" description={`Upload ${categories.slice(0, 3).join(", ").toLowerCase()} files for this record.`} action={canUpload && <Button size="sm" variant="outline" onClick={() => setOpen(true)}><Upload /> Upload files</Button>} />}

@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from "react"
 import { Download, FileText, Lock, Trash2 } from "@/components/icons"
-import { DataTable, type Column } from "@/components/tables/DataTable"
+import { DataTable, type Column, type TableGroup } from "@/components/tables/DataTable"
 import { EmptyState } from "@/components/common/EmptyState"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import { ActionMenu } from "@/components/common/ActionMenu"
@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog"
 import { formatDateTime } from "@/lib/dates"
 import { formatFileSize } from "@/lib/format"
 import { fileKind } from "@/lib/file-type"
-import { DOC_CATEGORY_CLS } from "@/lib/category-colors"
+import { DOC_CATEGORY_CLS, docCategoryCls } from "@/lib/category-colors"
 import { FileTypeIcon } from "@/components/common/FileTypeIcon"
 import type { DocumentRow } from "@/services"
 import { useDeleteDocument, useDownloadDocument } from "../hooks"
@@ -24,6 +24,8 @@ interface DocumentsTableProps {
   selectable?: boolean
   selected?: ReadonlySet<string>
   onSelectedChange?: (s: Set<string>) => void
+  /** show the files in category sections, in this order (the Category column is dropped) */
+  groupByCategory?: readonly string[]
 }
 
 const FileName = memo(function FileName({ d }: { d: DocumentRow }) {
@@ -39,7 +41,7 @@ const FileName = memo(function FileName({ d }: { d: DocumentRow }) {
   )
 })
 
-export function DocumentsTable({ rows, loading, canDelete, showEntity, empty, selectable, selected, onSelectedChange, fill }: DocumentsTableProps & { fill?: boolean }) {
+export function DocumentsTable({ rows, loading, canDelete, showEntity, empty, selectable, selected, onSelectedChange, fill, groupByCategory }: DocumentsTableProps & { fill?: boolean }) {
   const download = useDownloadDocument()
   const del = useDeleteDocument()
   const [toDelete, setToDelete] = useState<DocumentRow | null>(null)
@@ -48,7 +50,7 @@ export function DocumentsTable({ rows, loading, canDelete, showEntity, empty, se
     () => [
       { id: "name", header: "Document", sortValue: (d) => d.name, cell: (d) => <FileName d={d} />, className: "max-w-[22rem]" },
       { id: "type", header: "Type", sortValue: (d) => fileKind(d.name), exportValue: (d) => fileKind(d.name), cell: (d) => <span className="text-sm whitespace-nowrap text-muted-foreground">{fileKind(d.name)}</span>, hideBelow: "md" },
-      { id: "category", header: "Category", sortValue: (d) => d.category, cell: (d) => <StatusBadge status={d.category} className={DOC_CATEGORY_CLS[d.category]} dot={false} /> },
+      ...(groupByCategory ? [] : [{ id: "category", header: "Category", sortValue: (d: DocumentRow) => d.category, cell: (d: DocumentRow) => <StatusBadge status={d.category} className={DOC_CATEGORY_CLS[d.category]} dot={false} /> }]),
       ...(showEntity
         ? [{ id: "entity", header: "Linked to", cell: (d: DocumentRow) => (d.entityLink ? <TextLink to={d.entityLink} className="line-clamp-1">{d.entityLabel}</TextLink> : <span className="text-muted-foreground">{d.entityLabel}</span>), hideBelow: "lg" as const, className: "max-w-[18rem]" }]
         : []),
@@ -70,8 +72,18 @@ export function DocumentsTable({ rows, loading, canDelete, showEntity, empty, se
     ],
     // mutate functions are stable in TanStack Query v5
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [showEntity, canDelete],
+    [showEntity, canDelete, !!groupByCategory],
   )
+  const group = useMemo<TableGroup<DocumentRow> | undefined>(() => groupByCategory && {
+    key: (d) => d.category,
+    order: groupByCategory,
+    header: (c, n) => (
+      <div className="flex items-center gap-2">
+        <StatusBadge status={c} className={docCategoryCls(c)} dot={false} />
+        <span className="text-xs text-muted-foreground tabular-nums">{n} file{n === 1 ? "" : "s"}</span>
+      </div>
+    ),
+  }, [groupByCategory])
 
   return (
     <>
@@ -85,6 +97,7 @@ export function DocumentsTable({ rows, loading, canDelete, showEntity, empty, se
         selected={selected}
         onSelectedChange={onSelectedChange}
         initialSort={{ id: "uploaded", dir: "desc" }}
+        group={group}
         caption="Documents"
         empty={empty ?? <EmptyState compact icon={FileText} title="No documents yet" description="Uploaded files will appear here." />}
       />

@@ -253,7 +253,7 @@ function ProjectWorkspace({ p, candidates }: { p: ProjectRow; candidates: Candid
 
         <TabsContent value="documents" className="space-y-4">
           <SectionHeader title="Documents" description="Technical documents, inspector confirmations, reports, out documents and the PO for this job." actions={actions.resolve("sendDocuments") && <Button size="sm" variant="outline" onClick={actions.resolve("sendDocuments")!.run}><Send /> Send to client</Button>} />
-          <DocumentsPanel filterable readOnly={!canUploadDocs && !canBillEdit} entityType="Project" entityId={p.id} categories={["Technical Document", "Inspector Confirmation", "Report", "Out Document", "Purchase Order", "Other"]} title="Project documents" description="Upload several files at once. Files can be attached when emailing the client." />
+          <DocumentsPanel filterable grouped readOnly={!canUploadDocs && !canBillEdit} entityType="Project" entityId={p.id} categories={["Technical Document", "Inspector Confirmation", "Report", "Out Document", "Purchase Order", "Other"]} title="Project documents" description="Upload several files at once. Files can be attached when emailing the client." />
         </TabsContent>
 
         <TabsContent value="activity">
