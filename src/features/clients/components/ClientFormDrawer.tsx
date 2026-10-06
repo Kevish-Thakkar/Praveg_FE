@@ -5,7 +5,7 @@ import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Form } from "@/components/ui/form"
 import { DetailDrawer } from "@/components/dialogs/DetailDrawer"
-import { ComboboxField, FormGrid, FormSection, NumberField, SelectField, TextField } from "@/components/forms/fields"
+import { FormGrid, FormSection, NumberField, SelectField, TextField } from "@/components/forms/fields"
 import { AddressFields, addressSchema, emptyAddress } from "@/components/forms/address"
 import { Spinner } from "@/components/feedback/LoadingState"
 import { useLookupOptions } from "@/features/settings/lookups"
@@ -25,7 +25,6 @@ export const clientSchema = z.object({
 export type ClientValues = z.infer<typeof clientSchema>
 
 export const vendorSchema = z.object({
-  clientId: z.string().min(1, "Select the client this vendor belongs to"),
   name: z.string().trim().min(2, "Name is required").max(120),
   email: z.email("Enter a valid email"),
   mobile: phone,
@@ -92,16 +91,15 @@ export function ClientFormDrawer({ open, onOpenChange, saving, initial, onSubmit
   )
 }
 
-export function VendorFormDrawer({ open, onOpenChange, saving, initial, defaultClientId, onSubmit }: Common & { initial?: Vendor | null; defaultClientId?: string; onSubmit: (v: VendorValues) => void }) {
-  const { clientOptions } = useLookupOptions()
+export function VendorFormDrawer({ open, onOpenChange, saving, initial, onSubmit }: Common & { initial?: Vendor | null; onSubmit: (v: VendorValues) => void }) {
   const form = useForm<VendorValues>({ resolver: zodResolver(vendorSchema) })
   useEffect(() => {
     if (open)
       form.reset({
-        clientId: initial?.clientId ?? defaultClientId ?? "", name: initial?.name ?? "", email: initial?.email ?? "", mobile: initial?.mobile ?? "",
+        name: initial?.name ?? "", email: initial?.email ?? "", mobile: initial?.mobile ?? "",
         address: initial?.address ?? emptyAddress(),
       })
-  }, [open, initial, defaultClientId, form])
+  }, [open, initial, form])
 
   return (
     <DetailDrawer
@@ -109,15 +107,14 @@ export function VendorFormDrawer({ open, onOpenChange, saving, initial, defaultC
       onOpenChange={(o) => !saving && onOpenChange(o)}
       size="lg"
       title={initial ? `Edit ${initial.name}` : "Add vendor"}
-      description="A vendor is the client's supplier / manufacturer where the inspection takes place."
+      description="A supplier / manufacturer where inspections take place. Vendors are independent of clients — link them to projects."
       footer={<Footer formId="vendor-form" saving={saving} editing={!!initial} noun="vendor" onCancel={() => onOpenChange(false)} />}
     >
       <Form {...form}>
         <form id="vendor-form" noValidate className="space-y-5" onSubmit={form.handleSubmit(onSubmit)}>
           <FormSection title="Vendor">
             <FormGrid className="gap-3">
-              <ComboboxField control={form.control} name="clientId" label="Client" required options={clientOptions} searchPlaceholder="Search clients…" disabled={!!defaultClientId && !initial} />
-              <TextField control={form.control} name="name" label="Vendor name" required />
+              <TextField control={form.control} name="name" label="Vendor name" required className="sm:col-span-2" />
               <TextField control={form.control} name="email" label="Email" required type="email" />
               <TextField control={form.control} name="mobile" label="Mobile number" type="tel" autoComplete="tel" />
             </FormGrid>

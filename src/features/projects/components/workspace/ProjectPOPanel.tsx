@@ -10,7 +10,7 @@ import type { ResolvedAction } from "./useProjectActions"
 
 /** Purchase orders tab: the client's PO for this job, compared with the client price. */
 export function ProjectPOPanel({ p, pos, record }: { p: ProjectRow; pos: PORow[]; record: ResolvedAction | null }) {
-  if (!pos.length) return <EmptyState icon={ReceiptText} title="No PO record yet" description="A PO record opens automatically when an inspector is assigned to this job." />
+  if (!pos.length) return <EmptyState icon={ReceiptText} title="No PO record yet" description="A PO record opens automatically when an inspector is assigned. If the client's PO has already arrived, create it now." action={record && <Button onClick={record.run}><ReceiptText /> {record.label}</Button>} />
   return (
     <ul className="space-y-4">
       {pos.map((po) => {

@@ -192,7 +192,7 @@ function ProjectWorkspace({ p, candidates }: { p: ProjectRow; candidates: Candid
               <CardContent className="space-y-4 px-5">
                 <DescriptionList columns={1} className="gap-y-3" items={[
                   { label: "Client", value: <><Link to={`/clients/${p.clientId}`} className="text-primary-text hover:underline">{p.clientName}</Link>{p.clientContactName && <span className="block text-xs text-muted-foreground">{p.clientContactName}</span>}</> },
-                  { label: "Vendor", value: p.vendorName ?? "—" },
+                  { label: p.vendorNames.length > 1 ? "Vendors" : "Vendor", value: p.vendorNames.length ? p.vendorNames.join(", ") : "—" },
                   { label: "Service", value: `${p.serviceName} (${p.category})` },
                   { label: "Site", value: formatAddress(p.site) },
                 ]} />

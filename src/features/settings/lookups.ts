@@ -18,7 +18,7 @@ export function useLookupOptions() {
 
   return useMemo(() => {
     const clientOptions: Option[] = (clients.data ?? []).map((c) => ({ value: c.id, label: c.name, hint: `${c.address.city}, ${c.address.state}` }))
-    const vendorOptions: Option[] = (vendors.data ?? []).map((v) => ({ value: v.id, label: v.name, hint: `${v.clientName} · ${v.address.city}` }))
+    const vendorOptions: Option[] = (vendors.data ?? []).map((v) => ({ value: v.id, label: v.name, hint: `${v.address.city}, ${v.address.state}` }))
     const orgOptions: Option[] = (orgs.data ?? []).map((o) => ({ value: o.id, label: o.name }))
     const typeOptions: Option[] = (types.data ?? []).map((t) => ({ value: t.id, label: t.name, hint: t.category }))
     const coordinatorOptions: Option[] = (users.data ?? []).filter((u) => (u.role === "Coordinator" || u.role === "Super Admin") && u.status !== "Disabled").map((u) => ({ value: u.id, label: `${u.name} · ${u.role}` }))

@@ -3,6 +3,8 @@ import { currentUserId, useSessionStore } from "@/store/session.store"
 import type { PurchaseOrder, Reminder, TimeEntry, Visit } from "@/types/domain"
 import { ApiError, notFound, request } from "./api"
 import { logActivity } from "./activity.service"
+import { mailVisitRescheduled, queueJobReminder } from "./project.service"
+import { formatDate, toISODate } from "@/lib/dates"
 
 const proj = (id: string | null) => db.projects.find((p) => p.id === id)
 
@@ -33,16 +35,18 @@ export const poService = {
   save: (projectId: string, input: POInput) =>
     request(() => {
       const p = proj(projectId) ?? notFound("Project")
-      if (!p.assignedInspectorId) throw new ApiError("A PO can be recorded once an inspector is confirmed", 409)
+      if (p.stage === "Cancelled") throw new ApiError("This project is cancelled", 409)
       if (input.poNumber && db.purchaseOrders.some((x) => x.poNumber === input.poNumber && x.projectId !== projectId)) {
         throw new ApiError(`PO number ${input.poNumber} is already used on another project`, 409)
       }
+      // one PO record per project: created here (manually) or when the inspector is assigned
       let po = db.purchaseOrders.find((x) => x.projectId === projectId)
+      const created = !po
       if (!po) {
         po = { id: newId("po"), projectId, clientId: p.clientId, ...input }
         db.purchaseOrders.unshift(po)
       } else Object.assign(po, input)
-      logActivity("Purchase Order", po.id, projectId, `Recorded PO ${input.poNumber || "(pending)"} for ${p.code}`)
+      logActivity("Purchase Order", po.id, projectId, `${created ? "Created" : "Recorded"} PO ${input.poNumber || "(pending)"} for ${p.code}`)
       return poRow(po)
     }, { mutate: true }),
 }
@@ -78,6 +82,10 @@ export function toVisitRow(v: Visit): VisitRow {
 }
 
 export type VisitInput = Pick<Visit, "projectId" | "type" | "date" | "notes">
+export interface RescheduleInput { date: string; reason: string; notifyInspector: boolean }
+
+/** the open calendar reminder created for a visit (matched by project + old date) */
+const visitReminder = (v: Visit) => db.reminders.find((r) => r.projectId === v.projectId && r.type === "Job Date" && r.dueDate === v.date && r.status === "Open")
 
 export const visitService = {
   list: (filter: { projectId?: string } = {}) =>
@@ -101,10 +109,45 @@ export const visitService = {
       logActivity("Visit", id, v.projectId, `Completed ${v.type.toLowerCase()} visit`)
       return toVisitRow(v)
     }, { mutate: true }),
+  /**
+   * Move an upcoming visit to another date. Keeps the history, moves its calendar reminder, keeps the job
+   * schedule in step for job days (and re-queues the automatic reminder email), and can email the inspector.
+   */
+  reschedule: (id: string, input: RescheduleInput) =>
+    request(() => {
+      const v = db.visits.find((x) => x.id === id) ?? notFound("Visit")
+      const p = proj(v.projectId) ?? notFound("Project")
+      if (v.status !== "Upcoming") throw new ApiError("Only upcoming visits can be rescheduled", 409)
+      if (p.stage === "Cancelled") throw new ApiError("This project is cancelled", 409)
+      if (!input.date) throw new ApiError("Pick the new date", 422)
+      if (input.date === v.date) throw new ApiError("Pick a different date", 422)
+      if (input.date < toISODate(new Date())) throw new ApiError("The new date can't be in the past", 422)
+      if (input.reason.trim().length < 3) throw new ApiError("Give a reason for rescheduling", 422)
+      if (db.visits.some((x) => x.id !== v.id && x.projectId === v.projectId && x.status === "Upcoming" && x.date === input.date && x.type === v.type)) {
+        throw new ApiError(`There is already a ${v.type.toLowerCase()} visit on ${formatDate(input.date)}`, 409)
+      }
+      const from = v.date
+      const reminder = visitReminder(v)
+      if (reminder) reminder.dueDate = input.date
+      v.reschedules = [...(v.reschedules ?? []), { from, to: input.date, reason: input.reason.trim(), at: new Date().toISOString(), byId: currentUserId() }]
+      v.date = input.date
+      // job days mirror the project's schedule
+      if (v.type === "Inspection" && p.schedule?.dates.includes(from)) {
+        p.schedule.dates = [...new Set(p.schedule.dates.map((d) => (d === from ? input.date : d)))].sort()
+        queueJobReminder(p)
+      }
+      if (input.notifyInspector) mailVisitRescheduled(p, from, input.date, v.type, input.reason.trim())
+      logActivity("Visit", v.id, p.id, `Rescheduled ${v.type.toLowerCase()} visit from ${formatDate(from)} to ${formatDate(input.date)} — ${input.reason.trim()}`)
+      return toVisitRow(v)
+    }, { mutate: true }),
   cancel: (id: string) =>
     request(() => {
       const v = db.visits.find((x) => x.id === id) ?? notFound("Visit")
+      if (v.status !== "Upcoming") throw new ApiError("Only upcoming visits can be cancelled", 409)
       v.status = "Cancelled"
+      const reminder = visitReminder(v)
+      if (reminder) reminder.status = "Done"
+      logActivity("Visit", v.id, v.projectId, `Cancelled ${v.type.toLowerCase()} visit on ${formatDate(v.date)}`)
       return toVisitRow(v)
     }, { mutate: true }),
 }

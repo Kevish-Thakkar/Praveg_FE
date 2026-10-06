@@ -97,14 +97,14 @@ export const clients: Client[] = [
 ]
 
 export const vendors: Vendor[] = [
-  { id: "ven_001", clientId: "cli_001", name: "Anand Forge & Fittings Pvt Ltd", mobile: "+91 281 238 4410", email: "qc@anandforge.in", address: addr("GIDC Metoda, Plot G-1432", "Rajkot"), createdAt: dateTimeFromToday(-300) },
-  { id: "ven_002", clientId: "cli_001", name: "Hazira Pressure Vessels Pvt Ltd", mobile: "+91 261 289 7740", email: "quality@hazirapv.in", address: addr("Hazira Industrial Area, Plot 7", "Hazira"), createdAt: dateTimeFromToday(-260) },
-  { id: "ven_008", clientId: "cli_001", name: "Bharuch Tank & Structurals Pvt Ltd", mobile: "+91 2642 251 880", email: "qa@bharuchtank.in", address: addr("GIDC Ankleshwar Road, Plot 88", "Bharuch"), createdAt: dateTimeFromToday(-140) },
-  { id: "ven_003", clientId: "cli_004", name: "Deccan Valves Pvt Ltd", mobile: "+91 40 2309 7760", email: "inspection@deccanvalves.in", address: addr("IDA Pashamylaram, Phase III", "Hyderabad"), createdAt: dateTimeFromToday(-240) },
-  { id: "ven_004", clientId: "cli_005", name: "Sabarmati Pump Works Ltd", mobile: "+91 79 2583 1190", email: "export-qa@sabarmatipumps.in", address: addr("Phase IV, GIDC Naroda", "Ahmedabad"), createdAt: dateTimeFromToday(-210) },
-  { id: "ven_005", clientId: "cli_003", name: "Jebel Ali Steel Structures FZE", mobile: "+971 4 881 5520", email: "qa@jasteel.ae", address: addr("JAFZA North, Plot N-3007", "Jebel Ali"), createdAt: dateTimeFromToday(-200) },
-  { id: "ven_006", clientId: "cli_002", name: "Al Noor Heat Exchangers FZE", mobile: "+971 6 557 3094", email: "qc@alnoorhx.ae", address: addr("Hamriyah Free Zone, Plot HD-04", "Sharjah"), createdAt: dateTimeFromToday(-170) },
-  { id: "ven_007", clientId: "cli_006", name: "Ras Al Khaimah Pipe Mills LLC", mobile: "+971 7 244 6180", email: "qa@rakpipemills.ae", address: addr("Al Hamra Industrial Zone, Plot 21", "Ras Al Khaimah"), createdAt: dateTimeFromToday(-160) },
+  { id: "ven_001", name: "Anand Forge & Fittings Pvt Ltd", mobile: "+91 281 238 4410", email: "qc@anandforge.in", address: addr("GIDC Metoda, Plot G-1432", "Rajkot"), createdAt: dateTimeFromToday(-300) },
+  { id: "ven_002", name: "Hazira Pressure Vessels Pvt Ltd", mobile: "+91 261 289 7740", email: "quality@hazirapv.in", address: addr("Hazira Industrial Area, Plot 7", "Hazira"), createdAt: dateTimeFromToday(-260) },
+  { id: "ven_008", name: "Bharuch Tank & Structurals Pvt Ltd", mobile: "+91 2642 251 880", email: "qa@bharuchtank.in", address: addr("GIDC Ankleshwar Road, Plot 88", "Bharuch"), createdAt: dateTimeFromToday(-140) },
+  { id: "ven_003", name: "Deccan Valves Pvt Ltd", mobile: "+91 40 2309 7760", email: "inspection@deccanvalves.in", address: addr("IDA Pashamylaram, Phase III", "Hyderabad"), createdAt: dateTimeFromToday(-240) },
+  { id: "ven_004", name: "Sabarmati Pump Works Ltd", mobile: "+91 79 2583 1190", email: "export-qa@sabarmatipumps.in", address: addr("Phase IV, GIDC Naroda", "Ahmedabad"), createdAt: dateTimeFromToday(-210) },
+  { id: "ven_005", name: "Jebel Ali Steel Structures FZE", mobile: "+971 4 881 5520", email: "qa@jasteel.ae", address: addr("JAFZA North, Plot N-3007", "Jebel Ali"), createdAt: dateTimeFromToday(-200) },
+  { id: "ven_006", name: "Al Noor Heat Exchangers FZE", mobile: "+971 6 557 3094", email: "qc@alnoorhx.ae", address: addr("Hamriyah Free Zone, Plot HD-04", "Sharjah"), createdAt: dateTimeFromToday(-170) },
+  { id: "ven_007", name: "Ras Al Khaimah Pipe Mills LLC", mobile: "+971 7 244 6180", email: "qa@rakpipemills.ae", address: addr("Al Hamra Industrial Zone, Plot 21", "Ras Al Khaimah"), createdAt: dateTimeFromToday(-160) },
 ]
 
 type InspectorSeed = [id: string, name: string, nationality: string, city: string, line: string, currency: string, manDay: number, lumpSum: number, hourly: number, roundTrip: number, engagement: Inspector["engagementType"], skills: string[], quals: string[], status: Inspector["status"]]

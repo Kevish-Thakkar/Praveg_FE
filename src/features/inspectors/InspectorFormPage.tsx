@@ -70,7 +70,7 @@ function InspectorForm({ initial }: { initial?: InspectorRow }) {
     { id: "profile", title: "Profile", description: "Contact details, engagement and availability.", fields: ["name", "email", "phone", "nationality", "engagementType", "status"] },
     { id: "location", title: "Location", description: "Used to find inspectors near a job site.", fields: ["address"] },
     { id: "skills", title: "Skills", description: "Projects match inspectors on these skills. Type to add a skill that isn't listed.", fields: ["skills", "qualificationsText"] },
-    { id: "rates", title: "Rates", description: "What Praveg pays the inspector. The price sent to the client is set per job by Accounts.", fields: ["currency", "manDayRate", "lumpSumRate", "hourlyRate", "roundTrip"] },
+    { id: "rates", title: "Rates", description: "What Praveg pays the inspector. The price sent to the client is set per job.", fields: ["currency", "manDayRate", "lumpSumRate", "hourlyRate", "roundTrip"] },
     { id: "cv", title: "CV", description: initial ? "Upload a new file only to replace the current CV." : "Required. This is the CV sent to clients." },
     { id: "review", title: "Review", description: "Check the details before saving." },
   ], [initial])

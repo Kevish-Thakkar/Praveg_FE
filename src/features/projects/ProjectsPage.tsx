@@ -74,7 +74,7 @@ export function ProjectsPage() {
     return inView.filter((p) =>
       has(v.stage, p.stage) && has(v.client, p.clientId) && has(v.service, p.serviceId) && has(v.owner, accounts ? p.billingInsight.next.owner : p.insight.next.owner) &&
       has(v.coordinator, p.coordinatorId) && has(v.country, p.site.country) &&
-      (!q || `${p.code} ${p.title} ${p.clientName} ${p.vendorName ?? ""} ${p.site.city} ${p.assignedInspectorName ?? ""}`.toLowerCase().includes(q)))
+      (!q || `${p.code} ${p.title} ${p.clientName} ${p.vendorNames.join(" ")} ${p.site.city} ${p.assignedInspectorName ?? ""}`.toLowerCase().includes(q)))
   }, [inView, v, search, accounts])
 
   const columns = useMemo<Column<ProjectRow>[]>(() => {

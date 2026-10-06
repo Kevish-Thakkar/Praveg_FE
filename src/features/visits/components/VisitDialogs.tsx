@@ -1,15 +1,15 @@
 import { useEffect } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { MapPin, UserRound } from "@/components/icons"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
 import { FormDialog } from "@/components/dialogs/FormDialog"
-import { DateField, NumberField, TextareaField } from "@/components/forms/fields"
-import { todayISO } from "@/lib/dates"
+import { DateField, NumberField, SwitchField, TextareaField } from "@/components/forms/fields"
+import { formatDate, todayISO } from "@/lib/dates"
 import { cn } from "@/lib/utils"
 import type { ProjectRow, VisitRow } from "@/services"
-import { useCompleteVisit, useScheduleVisit } from "@/features/execution/hooks"
+import { useCompleteVisit, useRescheduleVisit, useScheduleVisit } from "@/features/execution/hooks"
 import { VisitDateTile, VisitTypeBadge } from "./VisitBits"
 
 const TYPES = [
@@ -123,6 +123,62 @@ export function CompleteVisitDialog({ visit, onClose }: { visit: VisitRow | null
           <p className="-mt-2 text-xs text-muted-foreground">Expenses: travel, stay and per diem. Enter 0 if none.</p>
           <TextareaField control={form.control} name="notes" label="Visit summary" required rows={3} placeholder="What was inspected, findings, anything pending" />
           <p className="text-xs text-muted-foreground">{unit} and expenses are recorded against the job for Accounts.</p>
+        </form>
+      </Form>
+    </FormDialog>
+  )
+}
+
+const rescheduleSchema = z.object({
+  date: z.string({ error: "Pick the new date" }).min(1, "Pick the new date"),
+  reason: z.string().trim().min(3, "Say why the visit is moving").max(300),
+  notifyInspector: z.boolean(),
+})
+type RescheduleValues = z.infer<typeof rescheduleSchema>
+
+/** Move an upcoming visit to another date. Job days also update the project's job dates and the automatic reminder. */
+export function RescheduleVisitDialog({ visit, onClose }: { visit: VisitRow | null; onClose: () => void }) {
+  const reschedule = useRescheduleVisit()
+  const form = useForm<RescheduleValues>({ resolver: zodResolver(rescheduleSchema), defaultValues: { date: "", reason: "", notifyInspector: true } })
+  useEffect(() => {
+    if (visit) form.reset({ date: "", reason: "", notifyInspector: true })
+  }, [visit, form])
+  const newDate = useWatch({ control: form.control, name: "date" })
+  const history = visit?.reschedules ?? []
+  return (
+    <FormDialog open={!!visit} onOpenChange={(o) => !o && onClose()} title="Reschedule visit" formId="reschedule-visit" submitLabel="Reschedule" loading={reschedule.isPending}>
+      <Form {...form}>
+        <form
+          id="reschedule-visit"
+          noValidate
+          className="space-y-4"
+          onSubmit={form.handleSubmit((v) => {
+            if (!visit) return
+            if (v.date === visit.date) return form.setError("date", { message: "Pick a different date" })
+            reschedule.mutate({ id: visit.id, input: v }, { onSuccess: onClose })
+          })}
+        >
+          {visit && <VisitContext date={visit.date} type={visit.type} code={visit.projectCode} title={visit.projectTitle} inspector={visit.inspectorName} location={visit.location} />}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium">Current date</p>
+              <p className="flex h-9 items-center rounded-md border bg-muted/50 px-3 text-sm">{formatDate(visit?.date)}</p>
+            </div>
+            <DateField control={form.control} name="date" label="New date" required min={todayISO()} />
+          </div>
+          <TextareaField control={form.control} name="reason" label="Reason" required rows={2} placeholder="e.g. Vendor not ready — hydrotest moved by client" />
+          <SwitchField control={form.control} name="notifyInspector" label={`Email ${visit?.inspectorName ?? "the inspector"} about the new date`} />
+          {visit?.type === "Inspection" && newDate && (
+            <p className="rounded-md bg-info-soft px-3 py-2 text-xs text-info">This is a job day: the project's job dates and the automatic reminder email (the day before the first job day) are updated too.</p>
+          )}
+          {history.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold tracking-[0.04em] text-muted-foreground uppercase">Earlier changes</p>
+              <ul className="space-y-1 text-xs text-muted-foreground">
+                {history.map((h) => <li key={h.at}>{formatDate(h.from)} → {formatDate(h.to)} · {h.reason}</li>)}
+              </ul>
+            </div>
+          )}
         </form>
       </Form>
     </FormDialog>

@@ -18,7 +18,7 @@ export interface ClientRow extends Client {
 
 const clientRow = (c: Client): ClientRow => ({
   ...c,
-  vendorCount: db.vendors.filter((v) => v.clientId === c.id).length,
+  vendorCount: new Set(db.projects.filter((p) => p.clientId === c.id).flatMap((p) => p.vendorIds)).size,
   projectCount: db.projects.filter((p) => p.clientId === c.id).length,
   openProjects: db.projects.filter((p) => p.clientId === c.id && !["Completed", "Cancelled"].includes(p.stage)).length,
 })
@@ -45,7 +45,6 @@ export const clientService = {
     request(() => {
       if (db.projects.some((p) => p.clientId === id)) throw new ApiError("This client has projects and cannot be deleted", 409)
       db.clients = db.clients.filter((c) => c.id !== id)
-      db.vendors = db.vendors.filter((v) => v.clientId !== id)
       return id
     }, { mutate: true }),
   saveContact: (clientId: string, contact: Omit<ClientContact, "id"> & { id?: string }) =>
@@ -63,26 +62,31 @@ export const clientService = {
     }, { mutate: true }),
 }
 
-/* ───────────── Vendors (belong to a client) ───────────── */
+/* ───────────── Vendors (independent of clients; linked to projects) ───────────── */
 
 export type VendorInput = Omit<Vendor, "id" | "createdAt">
 export interface VendorRow extends Vendor {
-  clientName: string
   projectCount: number
+  /** clients whose projects involve this vendor (derived, not ownership) */
+  clientNames: string[]
 }
-const vendorRow = (v: Vendor): VendorRow => ({
-  ...v,
-  clientName: db.clients.find((c) => c.id === v.clientId)?.name ?? "—",
-  projectCount: db.projects.filter((p) => p.vendorId === v.id).length,
-})
+const vendorRow = (v: Vendor): VendorRow => {
+  const projects = db.projects.filter((p) => p.vendorIds.includes(v.id))
+  return {
+    ...v,
+    projectCount: projects.length,
+    clientNames: [...new Set(projects.map((p) => db.clients.find((c) => c.id === p.clientId)?.name).filter(Boolean) as string[])].sort(),
+  }
+}
 
 export const vendorService = {
-  list: (filter: { clientId?: string } = {}) => request<VendorRow[]>(() => db.vendors.filter((v) => !filter.clientId || v.clientId === filter.clientId).map(vendorRow)),
+  list: () => request<VendorRow[]>(() => db.vendors.map(vendorRow)),
   create: (data: VendorInput) =>
     request(() => {
+      if (db.vendors.some((x) => x.name.trim().toLowerCase() === data.name.trim().toLowerCase())) throw new ApiError("A vendor with this name already exists", 409)
       const v: Vendor = { ...data, id: newId("ven"), createdAt: new Date().toISOString() }
       db.vendors.unshift(v)
-      logActivity("Vendor", v.id, null, `Added vendor ${v.name} for ${vendorRow(v).clientName}`)
+      logActivity("Vendor", v.id, null, `Added vendor ${v.name}`)
       return vendorRow(v)
     }, { mutate: true }),
   update: (id: string, data: VendorInput) =>
@@ -93,7 +97,7 @@ export const vendorService = {
     }, { mutate: true }),
   remove: (id: string) =>
     request(() => {
-      if (db.projects.some((p) => p.vendorId === id)) throw new ApiError("This vendor is linked to projects and cannot be deleted", 409)
+      if (db.projects.some((p) => p.vendorIds.includes(id))) throw new ApiError("This vendor is linked to projects and cannot be deleted", 409)
       db.vendors = db.vendors.filter((v) => v.id !== id)
       return id
     }, { mutate: true }),

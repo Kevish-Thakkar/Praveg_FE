@@ -11,6 +11,7 @@ import { PresetComposer } from "@/features/emails/components/PresetComposer"
 import { useSendEmail } from "@/features/emails/hooks"
 import { ScheduleVisitDialog } from "@/features/visits/components/VisitDialogs"
 import { PoDialog } from "@/features/purchase-orders/components/PoDialog"
+import { newPoFor } from "@/features/purchase-orders/po-utils"
 import { useBillingActions } from "@/features/finance/components/BillingActions"
 import type { CheckpointActionKey } from "@/lib/project-workflow"
 import type { PORow, ProjectRow } from "@/services"
@@ -105,7 +106,7 @@ export function useProjectActions({ p, candidates, pos, onGoTo }: { p: ProjectRo
       case "recordReplies": return canCandidates ? a(() => onGoTo("inspectors")) : null
       case "requestPrice": return canEdit && !canPrice && !p.pricing ? a(() => requestPrice.mutate(p.id), { label: p.pricingRequestedAt ? "Remind Accounts" : "Request client price", pending: requestPrice.isPending }) : null
       case "setPrice": return canPrice ? a(() => setDialog("price"), p.pricing ? { label: "Edit client price" } : {}) : null
-      case "sendCvs": return canEdit ? a(() => setDialog("cvs"), { label: `Send ${selectedCvs.size || ""} CV${selectedCvs.size === 1 ? "" : "s"} to client`, disabled: !p.pricing || !selectedCvs.size, hint: !p.pricing ? "Waiting for Accounts to set the client price" : undefined }) : null
+      case "sendCvs": return canEdit ? a(() => setDialog("cvs"), { label: `Send ${selectedCvs.size || ""} CV${selectedCvs.size === 1 ? "" : "s"} to client`, disabled: !p.pricing || !selectedCvs.size, hint: !p.pricing ? "Set the client price first" : undefined }) : null
       case "recordDecision": return canEdit ? a(() => setDialog("decision")) : null
       case "interviewPassed": return canEdit ? a(() => interview.mutate({ projectId: p.id, result: "Passed" }), { pending: interview.isPending }) : null
       case "interviewFailed": return canEdit ? a(() => interview.mutate({ projectId: p.id, result: "Failed" }), { pending: interview.isPending }) : null
@@ -114,7 +115,8 @@ export function useProjectActions({ p, candidates, pos, onGoTo }: { p: ProjectRo
       case "sendReminder": return canEdit ? a(() => reminder.mutate(p.id), { pending: reminder.isPending }) : null
       case "markJobDone": return canEdit ? a(() => jobDone.mutate(p.id), { pending: jobDone.isPending }) : null
       case "scheduleVisit": return canVisit && p.assignedInspectorId ? a(() => setDialog("visit")) : null
-      case "recordPO": return canPO && po ? a(() => setPoEditing(po), po.poNumber ? { label: "Update PO" } : {}) : null
+      // no PO record yet → create one now (the client's PO can arrive before the inspector is assigned)
+      case "recordPO": return canPO ? a(() => setPoEditing(po ?? newPoFor(p)), po ? (po.poNumber ? { label: "Update PO" } : {}) : { label: "Create PO" }) : null
       case "uploadReport": return canEdit ? a(() => setDialog("report"), p.completion.reportUploadedAt ? { label: "Add report files" } : {}) : null
       case "sendCompletion": return canEdit ? a(() => setDialog("completion")) : null
       case "sendDocuments": return canSendDocs && !p.locked ? a(() => setDialog("documents")) : null

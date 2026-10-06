@@ -7,6 +7,8 @@ import type { CandidateRow } from "../workflow/types"
 import { useCandidates, useProject } from "../../hooks"
 import { useProjectActions } from "./useProjectActions"
 import { useProjectTracks } from "./useProjectTracks"
+import { VISIT_STEPS } from "./visit-steps"
+import { VisitsPopover } from "@/features/visits/components/VisitsPopover"
 
 /** Checkpoint actions in the shape the overlay and the step details page render. */
 export function toOverlayActions(actions: ReturnType<typeof useProjectActions>, c: Checkpoint | null): OverlayAction[] {
@@ -29,6 +31,9 @@ export function ProjectStepOverlay({ p, candidates, stepId, onStep, onClose, onG
   const { all, pos } = useProjectTracks(p, candidates)
   const actions = useProjectActions({ p, candidates, pos, onGoTo })
   const open = all.find((c) => c.id === stepId) ?? null
+  // job step: visits get their own popover (list + complete / reschedule / cancel + schedule)
+  const withVisits = !!open && VISIT_STEPS.has(open.id) && !!p.assignedInspectorId
+  const scheduleVisit = actions.resolve("scheduleVisit")
   return (
     <>
       <CheckpointOverlay
@@ -38,7 +43,8 @@ export function ProjectStepOverlay({ p, candidates, stepId, onStep, onClose, onG
         open={!!open}
         onClose={onClose}
         onNavigate={(id) => all.some((c) => c.id === id) && onStep(id)}
-        actions={toOverlayActions(actions, open)}
+        actions={toOverlayActions(actions, open).filter((a) => !withVisits || a.key !== "scheduleVisit")}
+        extra={withVisits ? <VisitsPopover p={p} onSchedule={scheduleVisit?.run} /> : undefined}
         detailsHref={open ? `/projects/${p.id}/steps/${open.id}` : undefined}
       />
       {actions.dialogs}

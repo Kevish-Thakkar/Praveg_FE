@@ -22,6 +22,8 @@ import { useCandidates, useProject } from "./hooks"
 import { useProjectActions } from "./components/workspace/useProjectActions"
 import { useProjectTracks } from "./components/workspace/useProjectTracks"
 import { toOverlayActions } from "./components/workspace/ProjectStepOverlay"
+import { VISIT_STEPS } from "./components/workspace/visit-steps"
+import { VisitsPopover } from "@/features/visits/components/VisitsPopover"
 
 /** Full details of one workflow checkpoint, opened from the checkpoint overlay. */
 export function ProjectStepPage() {
@@ -45,6 +47,8 @@ function StepDetails({ p, candidates }: { p: ProjectRow; candidates: CandidateRo
     () => (c ? (activity.data ?? []).filter((a) => c.activity.test(a.message)).map((a) => ({ id: a.id, at: a.at, message: a.message, actorName: a.actorName })) : []),
     [c, activity.data],
   )
+  const withVisits = !!c && VISIT_STEPS.has(c.id) && !!p.assignedInspectorId
+  const scheduleVisit = actions.resolve("scheduleVisit")
   const goTo = (id: string) => navigate(`/projects/${p.id}/steps/${id}`, { replace: true })
 
   if (!c) {
@@ -75,7 +79,7 @@ function StepDetails({ p, candidates }: { p: ProjectRow; candidates: CandidateRo
             </div>
             <CheckpointProgress c={c} />
             <CheckpointBlocked c={c} />
-            <div className="border-t pt-4"><CheckpointActions c={c} actions={toOverlayActions(actions, c)} /></div>
+            <div className="border-t pt-4"><CheckpointActions c={c} actions={toOverlayActions(actions, c).filter((a) => !withVisits || a.key !== "scheduleVisit")} extra={withVisits ? <VisitsPopover p={p} onSchedule={scheduleVisit?.run} /> : undefined} /></div>
           </CardContent>
         </Card>
       </header>

@@ -1,5 +1,5 @@
-import { useMemo, useState, type ReactNode } from "react"
-import { CalendarCheck, CalendarX, MapPinned } from "@/components/icons"
+import { useMemo, type ReactNode } from "react"
+import { Check, CircleX, MapPinned, Reschedule } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { DataTable, type Column } from "@/components/tables/DataTable"
 import { StatusBadge } from "@/components/common/StatusBadge"
@@ -7,19 +7,15 @@ import { ActionMenu } from "@/components/common/ActionMenu"
 import { EmptyState } from "@/components/common/EmptyState"
 import { TextLink } from "@/components/common/TextLink"
 import { usePermission } from "@/components/common/Can"
-import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog"
 import { formatDate, relativeDay } from "@/lib/dates"
 import { formatMoney } from "@/lib/format"
 import type { VisitRow } from "@/services"
-import { useCancelVisit } from "@/features/execution/hooks"
-import { CompleteVisitDialog } from "./VisitDialogs"
+import { useVisitDialogs } from "./useVisitDialogs"
 import { VisitDateTile, VisitTypeBadge } from "./VisitBits"
 
 export function VisitsTable({ rows, loading, showProject = true, empty, fill = false }: { rows: VisitRow[]; loading?: boolean; showProject?: boolean; empty?: ReactNode; fill?: boolean }) {
   const canEdit = usePermission("visits", "edit")
-  const cancel = useCancelVisit()
-  const [completing, setCompleting] = useState<VisitRow | null>(null)
-  const [cancelling, setCancelling] = useState<VisitRow | null>(null)
+  const { complete, reschedule, cancel, dialogs } = useVisitDialogs()
 
   const columns = useMemo<Column<VisitRow>[]>(
     () => [
@@ -30,6 +26,7 @@ export function VisitsTable({ rows, loading, showProject = true, empty, fill = f
             <div className="min-w-0 space-y-1">
               <VisitTypeBadge type={v.type} />
               <p className="text-xs text-muted-foreground">{v.status === "Upcoming" ? relativeDay(v.date) : formatDate(v.date)}</p>
+              {!!v.reschedules?.length && <p className="text-[11px] text-warning" title={v.reschedules.map((h) => `${formatDate(h.from)} → ${formatDate(h.to)}: ${h.reason}`).join("\n")}>Moved from {formatDate(v.reschedules[0]!.from, "dd MMM")}</p>}
             </div>
           </div>
         ),
@@ -46,13 +43,16 @@ export function VisitsTable({ rows, loading, showProject = true, empty, fill = f
       {
         id: "actions", header: "", className: "w-px whitespace-nowrap", cell: (v) => canEdit && v.status === "Upcoming" && (
           <div className="flex items-center justify-end gap-1">
-            <Button size="sm" variant="outline" onClick={() => setCompleting(v)}><CalendarCheck /> Complete</Button>
-            <ActionMenu items={[{ label: "Cancel visit", icon: CalendarX, destructive: true, onSelect: () => setCancelling(v) }]} />
+            <Button size="sm" variant="outline" onClick={() => complete(v)}><Check className="text-success" /> Complete</Button>
+            <ActionMenu items={[
+              { label: "Reschedule", icon: Reschedule, onSelect: () => reschedule(v) },
+              { label: "Cancel visit", icon: CircleX, destructive: true, separatorBefore: true, onSelect: () => cancel(v) },
+            ]} />
           </div>
         ),
       },
     ],
-    [showProject, canEdit],
+    [showProject, canEdit, complete, reschedule, cancel],
   )
 
   return (
@@ -66,13 +66,17 @@ export function VisitsTable({ rows, loading, showProject = true, empty, fill = f
               <div className="flex items-center justify-between gap-2"><VisitTypeBadge type={v.type} /><StatusBadge status={v.status} /></div>
               <p className="truncate text-sm font-medium">{v.inspectorName}</p>
               <p className="truncate text-xs text-muted-foreground">{v.projectCode} · {v.location}</p>
-              {canEdit && v.status === "Upcoming" && <Button size="sm" variant="outline" className="mt-1" onClick={() => setCompleting(v)}><CalendarCheck /> Complete</Button>}
+              {canEdit && v.status === "Upcoming" && (
+                <div className="mt-1 flex gap-1.5">
+                  <Button size="sm" variant="outline" onClick={() => complete(v)}><Check className="text-success" /> Complete</Button>
+                  <Button size="sm" variant="outline" onClick={() => reschedule(v)}><Reschedule className="text-info" /> Reschedule</Button>
+                </div>
+              )}
             </div>
           </div>
         )}
       />
-      <CompleteVisitDialog visit={completing} onClose={() => setCompleting(null)} />
-      <ConfirmDialog open={!!cancelling} onOpenChange={(o) => !o && setCancelling(null)} title="Cancel this visit?" description={`${cancelling?.type} visit on ${formatDate(cancelling?.date)} will be cancelled. The inspector should be informed separately.`} confirmLabel="Cancel visit" destructive loading={cancel.isPending} onConfirm={() => cancelling && cancel.mutate(cancelling.id, { onSuccess: () => setCancelling(null) })} />
+      {dialogs}
     </>
   )
 }

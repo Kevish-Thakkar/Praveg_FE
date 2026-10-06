@@ -32,6 +32,8 @@ interface CheckpointOverlayProps {
   onClose: () => void
   onNavigate: (id: string) => void
   actions: OverlayAction[]
+  /** extra controls next to the actions, e.g. the visits popover on the job step */
+  extra?: ReactNode
   /** full details page for the open checkpoint */
   detailsHref?: string
 }
@@ -68,7 +70,7 @@ const doneCount = (c: Checkpoint) => c.substeps.filter((s) => s.status === "done
  * Quick look at one checkpoint without leaving the page: status, progress, what needs doing now and the
  * actions that make sense right now. Everything else lives on the checkpoint's details page.
  */
-export function CheckpointOverlay({ checkpoint: c, all, trackLabel, open, onClose, onNavigate, actions, detailsHref }: CheckpointOverlayProps) {
+export function CheckpointOverlay({ checkpoint: c, all, trackLabel, open, onClose, onNavigate, actions, detailsHref, extra }: CheckpointOverlayProps) {
   const { siblings, pos, prev, next } = checkpointPosition(c, all)
   const focus = c ? focusSubStep(c) : undefined
 
@@ -120,7 +122,7 @@ export function CheckpointOverlay({ checkpoint: c, all, trackLabel, open, onClos
             </div>
 
             <footer className="space-y-3 border-t bg-card px-6 py-4">
-              <CheckpointActions c={c} actions={actions} />
+              <CheckpointActions c={c} actions={actions} extra={extra} />
               <div className="flex items-center justify-between">
                 <Button variant="ghost" size="sm" disabled={!prev} onClick={() => prev && onNavigate(prev.id)}><ArrowLeft /> {prev ? prev.title : "Previous"}</Button>
                 <Button variant="ghost" size="sm" disabled={!next} onClick={() => next && onNavigate(next.id)}>{next ? next.title : "Next"} <ArrowRight /></Button>
@@ -211,8 +213,8 @@ export function CheckpointActivity({ activity }: { activity: TimelineEvent[] }) 
   )
 }
 
-export function CheckpointActions({ c, actions }: { c: Checkpoint; actions: OverlayAction[] }) {
-  if (!actions.length) return <p className="text-sm text-muted-foreground">{c.status === "completed" ? "This step is complete." : "Nothing for you to do at this step right now."}</p>
+export function CheckpointActions({ c, actions, extra }: { c: Checkpoint; actions: OverlayAction[]; extra?: ReactNode }) {
+  if (!actions.length && !extra) return <p className="text-sm text-muted-foreground">{c.status === "completed" ? "This step is complete." : "Nothing for you to do at this step right now."}</p>
   return (
     <div className="flex flex-wrap gap-2">
       {actions.map((a) => (
@@ -220,6 +222,7 @@ export function CheckpointActions({ c, actions }: { c: Checkpoint; actions: Over
           {a.pending ? <Spinner /> : a.icon ? <a.icon /> : null} {a.label}
         </Button>
       ))}
+      {extra}
     </div>
   )
 }

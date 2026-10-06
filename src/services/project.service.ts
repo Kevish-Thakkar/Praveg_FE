@@ -20,7 +20,8 @@ export interface ProjectRow extends Project {
   /** primary client contact ("To" contact, else first) */
   clientContactName: string | null
   clientContactEmail: string | null
-  vendorName: string | null
+  /** names of the vendors on this job, in the order chosen */
+  vendorNames: string[]
   serviceName: string
   category: "Inspection" | "Testing"
   coordinatorName: string
@@ -53,7 +54,7 @@ export function toProjectRow(p: Project): ProjectRow {
     clientName: client?.name ?? "—",
     clientContactName: contact?.name ?? null,
     clientContactEmail: contact?.email ?? client?.email ?? null,
-    vendorName: db.vendors.find((v) => v.id === p.vendorId)?.name ?? null,
+    vendorNames: p.vendorIds.map((id) => db.vendors.find((v) => v.id === id)?.name).filter(Boolean) as string[],
     serviceName: type?.name ?? "—",
     category: type?.category ?? "Inspection",
     coordinatorName: db.users.find((u) => u.id === p.coordinatorId)?.name ?? "—",
@@ -110,7 +111,7 @@ export function matchInspectors(site: Address, skills: string[], opts: { project
 
 function contextFor(p: Project, extra: { inspector?: Inspector | null; inspectors?: Inspector[] } = {}): MergeContext {
   const client = db.clients.find((c) => c.id === p.clientId)
-  const vendor = db.vendors.find((v) => v.id === p.vendorId)
+  const vendorNames = p.vendorIds.map((id) => db.vendors.find((v) => v.id === id)?.name).filter(Boolean) as string[]
   const primary = client?.contacts.find((c) => c.recipientRole === "To") ?? client?.contacts[0]
   const me = db.users.find((u) => u.id === currentUserId())
   const insp = extra.inspector ?? db.inspectors.find((i) => i.id === p.assignedInspectorId) ?? null
@@ -125,7 +126,8 @@ function contextFor(p: Project, extra: { inspector?: Inspector | null; inspector
     "project.price": p.pricing ? `${formatMoney(pricingTotal(p), p.pricing.currency)} (${p.pricing.rateBasis === "Lump Sum" ? "lump sum" : `${formatMoney(p.pricing.clientRate, p.pricing.currency)} × ${p.pricing.units} ${p.pricing.rateBasis === "Man-Day" ? "man-days" : "hours"}`})` : "to be advised",
     "service.name": db.projectTypes.find((t) => t.id === p.serviceId)?.name ?? "",
     "site.location": `${p.site.city}, ${p.site.state}`,
-    "vendor.name": vendor?.name ?? client?.name ?? "",
+    // several vendors → "A, B and C"; no vendor → the client (job at the client's own site)
+    "vendor.name": vendorNames.length ? vendorNames.length === 1 ? vendorNames[0]! : `${vendorNames.slice(0, -1).join(", ")} and ${vendorNames[vendorNames.length - 1]}` : client?.name ?? "",
     "inspector.name": insp?.name ?? "Inspector",
     "inspector.list": (extra.inspectors ?? []).map((i) => `• ${i.name} — ${i.qualifications.join(", ")} (${i.address.city})`).join("\n"),
     "interview.at": p.selection?.interviewAt ? new Date(p.selection.interviewAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "",
@@ -212,7 +214,7 @@ function mailInspector(p: Project, inspector: Inspector, kind: EmailKind) {
 
 /* ───────────── Project CRUD ───────────── */
 
-export type ProjectInput = Pick<Project, "title" | "clientId" | "vendorId" | "serviceId" | "requiredSkills" | "site" | "description" | "requiredBy" | "coordinatorId">
+export type ProjectInput = Pick<Project, "title" | "clientId" | "vendorIds" | "serviceId" | "requiredSkills" | "site" | "description" | "requiredBy" | "coordinatorId">
 
 function nextCode(): string {
   const max = db.projects.reduce((m, p) => Math.max(m, Number(p.code.split("-").pop()) || 0), 0)
@@ -234,16 +236,48 @@ function requestAvailabilityCore(p: Project, inspectorIds: string[]) {
   return added.length
 }
 
+/**
+ * Automatic reminder to the inspector at 09:00 the day before the first job date. Replaces any reminder
+ * still queued, so it is called again whenever the job dates change (schedule or reschedule).
+ */
+export function queueJobReminder(p: Project): void {
+  db.emails = db.emails.filter((e) => !(e.projectId === p.id && e.kind === "Job Reminder" && e.status === "Scheduled"))
+  const ins = db.inspectors.find((i) => i.id === p.assignedInspectorId)
+  const first = p.schedule?.dates[0]
+  if (!ins || !first) return
+  const before = new Date(`${first}T00:00:00`)
+  before.setDate(before.getDate() - 1)
+  if (toISODate(before) < toISODate(new Date())) return // first job day is today or past: nothing to queue
+  const e = templateEmail("Job Reminder", contextFor(p, { inspector: ins }))
+  scheduleEmail({ kind: "Job Reminder", projectId: p.id, to: [ins.email], subject: e.subject, body: e.body }, scheduleAt(toISODate(before)))
+}
+
+/** Email the assigned inspector that a visit moved (free text, not a template). */
+export function mailVisitRescheduled(p: Project, from: string, to: string, type: string, reason: string): void {
+  const ins = db.inspectors.find((i) => i.id === p.assignedInspectorId)
+  if (!ins) return
+  recordEmail({
+    kind: "General", projectId: p.id, to: [ins.email], cc: [], bcc: [], attachmentIds: [], templateId: null,
+    subject: `Visit rescheduled — ${p.code}: ${formatDate(from)} → ${formatDate(to)}`,
+    body: `Dear ${ins.name},\n\nThe ${type.toLowerCase()} visit for ${p.title} at ${p.site.city}, ${p.site.state} has moved from ${formatDate(from)} to ${formatDate(to)}.\n\nReason: ${reason}\n\nPlease confirm you are available on the new date.\n\nRegards,\nPraveg Certification Services`,
+  })
+}
+
+function checkVendors(ids: string[]) {
+  const unknown = ids.find((id) => !db.vendors.some((v) => v.id === id))
+  if (unknown) throw new ApiError("One of the selected vendors no longer exists", 422)
+}
+
 export const projectService = {
   list: () => request<ProjectRow[]>(() => db.projects.map(toProjectRow)),
   get: (id: string) => request<ProjectRow>(() => toProjectRow(getProject(id))),
   create: (input: ProjectInput, requestInspectorIds: string[] = []) =>
     request(() => {
       const client = db.clients.find((c) => c.id === input.clientId) ?? notFound("Client")
-      if (input.vendorId && db.vendors.find((v) => v.id === input.vendorId)?.clientId !== client.id) throw new ApiError("The vendor does not belong to this client", 422)
+      checkVendors(input.vendorIds)
       const now = new Date().toISOString()
       const p: Project = {
-        ...input, id: newId("prj"), code: nextCode(), organizationId: input.site.country === "India" ? "org_in" : "org_me", stage: "Inquiry", stageChangedAt: now,
+        ...input, vendorIds: [...new Set(input.vendorIds)], id: newId("prj"), code: nextCode(), organizationId: input.site.country === "India" ? "org_in" : "org_me", stage: "Inquiry", stageChangedAt: now,
         pricing: null, pricingRequestedAt: null, selection: null, assignedInspectorId: null, schedule: null,
         completion: { jobDoneAt: null, reportUploadedAt: null, completionEmailSentAt: null }, billing: { status: "Not Billable", invoice: null, payment: null, reminders: [] }, cancelledReason: null, createdAt: now,
       }
@@ -256,7 +290,8 @@ export const projectService = {
     request(() => {
       const p = getProject(id)
       if (p.stage === "Completed" && useSessionStore.getState().user?.role === "Coordinator") throw new ApiError("Completed projects can't be edited by coordinators", 403)
-      Object.assign(p, patch)
+      checkVendors(patch.vendorIds)
+      Object.assign(p, patch, { vendorIds: [...new Set(patch.vendorIds)] })
       logActivity("Project", id, id, "Updated project details")
       return toProjectRow(p)
     }, { mutate: true }),
@@ -330,7 +365,7 @@ export const projectService = {
       return candidateId
     }, { mutate: true }),
 
-  /* Pricing — Super Admin / Accountant */
+  /* Pricing — Super Admin, Accountant or Coordinator */
   requestPricing: (projectId: string) =>
     request(() => {
       const p = getProject(projectId)
@@ -343,7 +378,9 @@ export const projectService = {
       const p = getProject(projectId)
       if (pricing.clientRate <= 0 || pricing.units <= 0) throw new ApiError("Rate and units must be greater than zero", 422)
       p.pricing = { ...pricing, setById: currentUserId(), setAt: new Date().toISOString() }
-      notify(`Client price set — ${p.code}`, `${formatMoney(pricingTotal(p), pricing.currency)}. CVs can now be sent to the client.`, `/projects/${p.id}`, ["Coordinator", "Super Admin"], "Finance")
+      // tell the other side: a coordinator-set price goes to Accounts, an Accounts-set price to the coordinators
+      const byCoordinator = useSessionStore.getState().user?.role === "Coordinator"
+      notify(`Client price set — ${p.code}`, `${formatMoney(pricingTotal(p), pricing.currency)}${byCoordinator ? ` set by ${db.users.find((u) => u.id === currentUserId())?.name}.` : ". CVs can now be sent to the client."}`, `/projects/${p.id}`, byCoordinator ? ["Accountant", "Super Admin"] : ["Coordinator", "Super Admin"], "Finance")
       logActivity("Project", p.id, p.id, `Client price set: ${formatMoney(pricingTotal(p), pricing.currency)}`)
       return toProjectRow(p)
     }, { mutate: true }),
@@ -352,7 +389,7 @@ export const projectService = {
   sendCvs: (projectId: string, candidateIds: string[], email: EmailDraft) =>
     request(() => {
       const p = getProject(projectId)
-      if (!p.pricing) throw new ApiError("The client price must be set by Accounts before sending CVs", 409)
+      if (!p.pricing) throw new ApiError("Set the client price before sending CVs", 409)
       const cs = db.candidates.filter((c) => candidateIds.includes(c.id))
       if (!cs.length || cs.some((c) => c.availability !== "Available")) throw new ApiError("Select inspectors who confirmed availability", 422)
       recordEmail(email)
@@ -419,13 +456,7 @@ export const projectService = {
       setStage(p, "Job Scheduled")
       db.visits = db.visits.filter((v) => !(v.projectId === p.id && v.status === "Upcoming"))
       sorted.forEach((date) => db.visits.push({ id: newId("vis"), projectId: p.id, inspectorId: p.assignedInspectorId!, type: "Inspection", date, status: "Upcoming", unitsSpent: null, expenses: null, notes: "", completedAt: null }))
-      // automatic reminder 1 day before the first job date
-      db.emails = db.emails.filter((e) => !(e.projectId === p.id && e.kind === "Job Reminder" && e.status === "Scheduled"))
-      const ins = db.inspectors.find((i) => i.id === p.assignedInspectorId)!
-      const before = new Date(`${sorted[0]}T00:00:00`)
-      before.setDate(before.getDate() - 1)
-      const e = templateEmail("Job Reminder", contextFor(p, { inspector: ins }))
-      scheduleEmail({ kind: "Job Reminder", projectId: p.id, to: [ins.email], subject: e.subject, body: e.body }, scheduleAt(toISODate(before)))
+      queueJobReminder(p)
       logActivity("Project", p.id, p.id, `Job scheduled for ${sorted.map((x) => formatDate(x)).join(", ")} — automatic reminder set`)
       return toProjectRow(p)
     }, { mutate: true }),

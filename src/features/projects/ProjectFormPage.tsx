@@ -5,10 +5,11 @@ import { z } from "zod"
 import { Navigate, useNavigate, useParams } from "react-router-dom"
 import { Copy, MapPin, Send } from "@/components/icons"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Form } from "@/components/ui/form"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { ComboboxField, CreatableMultiSelectField, DateField, FormGrid, SelectField, TextareaField, TextField } from "@/components/forms/fields"
+import { ComboboxField, CreatableMultiSelectField, DateField, FormGrid, MultiSelectField, SelectField, TextareaField, TextField } from "@/components/forms/fields"
 import { AddressFields, MapPreview, addressSchema, emptyAddress } from "@/components/forms/address"
 import { DetailSkeleton } from "@/components/feedback/LoadingState"
 import { ReviewSection, StepperFooter, StepperLayout } from "@/components/forms/FormStepper"
@@ -26,11 +27,10 @@ import type { ProjectRow } from "@/services"
 import { InspectorMatches } from "./components/InspectorMatches"
 import { useCreateProject, useProject, useUpdateProject } from "./hooks"
 
-const NONE = "__none__"
 const schema = z.object({
   title: z.string().trim().min(3, "Give the project a name").max(140),
   clientId: z.string().min(1, "Select a client"),
-  vendorId: z.string(),
+  vendorIds: z.array(z.string()),
   serviceId: z.string().min(1, "Select the service requested"),
   requiredSkills: z.array(z.string()),
   site: addressSchema,
@@ -62,47 +62,41 @@ function ProjectForm({ initial }: { initial?: ProjectRow }) {
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: initial
-      ? { title: initial.title, clientId: initial.clientId, vendorId: initial.vendorId ?? NONE, serviceId: initial.serviceId, requiredSkills: initial.requiredSkills, site: initial.site, description: initial.description, requiredBy: initial.requiredBy, coordinatorId: initial.coordinatorId }
-      : { title: "", clientId: "", vendorId: NONE, serviceId: "", requiredSkills: [], site: emptyAddress(), description: "", requiredBy: daysFromToday(14), coordinatorId: me.role === "Coordinator" ? me.id : "" },
+      ? { title: initial.title, clientId: initial.clientId, vendorIds: initial.vendorIds, serviceId: initial.serviceId, requiredSkills: initial.requiredSkills, site: initial.site, description: initial.description, requiredBy: initial.requiredBy, coordinatorId: initial.coordinatorId }
+      : { title: "", clientId: "", vendorIds: [], serviceId: "", requiredSkills: [], site: emptyAddress(), description: "", requiredBy: daysFromToday(14), coordinatorId: me.role === "Coordinator" ? me.id : "" },
   })
 
   const steps = useMemo<StepDef<Values>[]>(() => [
-    { id: "basics", title: "Client & service", description: "Who the job is for, what they need and by when.", fields: ["clientId", "vendorId", "serviceId", "requiredBy", "title", "coordinatorId"] },
+    { id: "basics", title: "Client & service", description: "Who the job is for, what they need and by when.", fields: ["clientId", "vendorIds", "serviceId", "requiredBy", "title", "coordinatorId"] },
     { id: "scope", title: "Scope & skills", description: "What the inspector will do and the skills needed. Skills are used to match inspectors.", fields: ["requiredSkills", "description"] },
     { id: "site", title: "Site", description: "Where the inspection takes place. Nearby inspectors are found from this location.", fields: ["site"] },
     ...(!initial ? [{ id: "inspectors", title: "Inspectors", description: "Optionally email nearby inspectors for availability as soon as the inquiry is saved.", optional: true }] : []),
     { id: "review", title: "Review", description: initial ? "Check the changes before saving." : "Check the inquiry before creating it." },
   ], [initial])
-  const stepper = useFormStepper({ form, steps, draftKey: initial ? undefined : `inquiry:${me.id}` })
+  const stepper = useFormStepper({ form, steps, draftKey: initial ? undefined : `inquiry:v2:${me.id}` })
 
   const clientId = useWatch({ control: form.control, name: "clientId" })
-  const vendorId = useWatch({ control: form.control, name: "vendorId" })
+  const vendorIds = useWatch({ control: form.control, name: "vendorIds" })
   const site = useWatch({ control: form.control, name: "site" }) as Address
   const skills = useWatch({ control: form.control, name: "requiredSkills" })
   const values = useWatch({ control: form.control }) as Values
-  const vendors = useVendors(clientId || "__none__")
-  const vendorOptions = useMemo(() => [{ value: NONE, label: "No vendor / at client's site" }, ...(vendors.data ?? []).map((v) => ({ value: v.id, label: v.name, hint: `${v.address.city}, ${v.address.state}` }))], [vendors.data])
+  // vendors are independent of clients — every vendor can be chosen, several per project
+  const vendors = useVendors()
+  const vendorOptions = useMemo(() => (vendors.data ?? []).map((v) => ({ value: v.id, label: v.name, hint: `${v.address.city}, ${v.address.state}` })), [vendors.data])
+  const chosenVendors = useMemo(() => (vendorIds ?? []).map((id) => vendors.data?.find((v) => v.id === id)).filter((v) => !!v), [vendorIds, vendors.data])
 
-  // vendor must belong to the selected client
-  useEffect(() => {
-    if (vendorId !== NONE && vendors.data && !vendors.data.some((v) => v.id === vendorId)) form.setValue("vendorId", NONE)
-  }, [vendors.data, vendorId, form])
-
-  const copyAddress = (from: "client" | "vendor") => {
-    const a = from === "client" ? lookups.clients.find((c) => c.id === clientId)?.address : vendors.data?.find((v) => v.id === vendorId)?.address
-    if (a) form.setValue("site", { ...a }, { shouldValidate: true })
-  }
-  // new inquiry: default site = vendor address (if chosen) else client address, only while the site is empty
+  const copyAddress = (a: Address | undefined) => { if (a) form.setValue("site", { ...a }, { shouldValidate: true }) }
+  const clientAddress = () => lookups.clients.find((c) => c.id === clientId)?.address
+  // new inquiry: default site = first vendor's address (if any) else the client's, only while the site is empty
   useEffect(() => {
     if (initial || form.getValues("site.city")) return
-    if (vendorId !== NONE) copyAddress("vendor")
-    else if (clientId) copyAddress("client")
+    copyAddress(chosenVendors[0]?.address ?? (clientId ? clientAddress() : undefined))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId, vendorId, vendors.data])
+  }, [clientId, chosenVendors])
 
   const back = initial ? `/projects/${initial.id}` : "/projects"
   const onValid = (v: Values) => {
-    const input = { ...v, vendorId: v.vendorId === NONE ? null : v.vendorId }
+    const input = { ...v, vendorIds: v.vendorIds ?? [] }
     if (initial) update.mutate(input, { onSuccess: () => navigate(back) })
     else create.mutate({ input, inspectorIds: [...selected] }, { onSuccess: (p) => { stepper.clearDraft(); navigate(`/projects/${p.id}`) } })
   }
@@ -138,8 +132,17 @@ function ProjectForm({ initial }: { initial?: ProjectRow }) {
             description={stepper.step.description}
             actions={stepper.step.id === "site" && (
               <>
-                <Button type="button" size="sm" variant="ghost" disabled={!clientId} onClick={() => copyAddress("client")}><Copy /> Use client address</Button>
-                <Button type="button" size="sm" variant="ghost" disabled={vendorId === NONE} onClick={() => copyAddress("vendor")}><Copy /> Use vendor address</Button>
+                <Button type="button" size="sm" variant="ghost" disabled={!clientId} onClick={() => copyAddress(clientAddress())}><Copy /> Use client address</Button>
+                {chosenVendors.length > 1 ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="ghost"><Copy /> Use vendor address</Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {chosenVendors.map((v) => <DropdownMenuItem key={v.id} onSelect={() => copyAddress(v.address)}>{v.name}<span className="ml-auto pl-3 text-xs text-muted-foreground">{v.address.city}</span></DropdownMenuItem>)}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Button type="button" size="sm" variant="ghost" disabled={!chosenVendors.length} onClick={() => copyAddress(chosenVendors[0]?.address)}><Copy /> Use vendor address</Button>
+                )}
               </>
             )}
             footer={
@@ -162,7 +165,7 @@ function ProjectForm({ initial }: { initial?: ProjectRow }) {
                   <TextField control={form.control} name="title" label="Project name" required placeholder="e.g. Reactor R-201 — third-party inspection" />
                   <FormGrid>
                     <ComboboxField control={form.control} name="clientId" label="Client" required options={lookups.clientOptions} searchPlaceholder="Search clients…" />
-                    <ComboboxField control={form.control} name="vendorId" label="Vendor" options={vendorOptions} disabled={!clientId} description={clientId ? "Only this client's vendors are listed" : "Select a client first"} />
+                    <MultiSelectField control={form.control} name="vendorIds" label="Vendors" options={vendorOptions} placeholder="None — job at the client's site" description="Select one or more vendors, or leave empty" />
                     <SelectField control={form.control} name="serviceId" label="Service requested" required options={lookups.typeOptions} />
                     <DateField control={form.control} name="requiredBy" label="Required by" required />
                     <SelectField control={form.control} name="coordinatorId" label="Coordinator" required options={lookups.coordinatorOptions} />
@@ -193,7 +196,7 @@ function ProjectForm({ initial }: { initial?: ProjectRow }) {
                     <DescriptionList items={[
                       { label: "Project name", value: values.title || "—", span: 2 },
                       { label: "Client", value: label(lookups.clientOptions, values.clientId) },
-                      { label: "Vendor", value: label(vendorOptions, values.vendorId) },
+                      { label: "Vendors", value: chosenVendors.length ? chosenVendors.map((v) => v.name).join(", ") : "None" },
                       { label: "Service", value: label(lookups.typeOptions, values.serviceId) },
                       { label: "Required by", value: formatDate(values.requiredBy) },
                       { label: "Coordinator", value: label(lookups.coordinatorOptions, values.coordinatorId) },

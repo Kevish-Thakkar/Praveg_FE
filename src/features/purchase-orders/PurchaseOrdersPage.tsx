@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
-import { ReceiptText } from "@/components/icons"
+import { Plus, ReceiptText } from "@/components/icons"
+import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -14,6 +15,7 @@ import { usePermission } from "@/components/common/Can"
 import { ErrorState } from "@/components/feedback/ErrorState"
 import { usePOs } from "@/features/execution/hooks"
 import { PoDialog } from "./components/PoDialog"
+import { NewPoDialog } from "./components/NewPoDialog"
 import { formatDate } from "@/lib/dates"
 import type { PORow } from "@/services"
 
@@ -21,6 +23,8 @@ import type { PORow } from "@/services"
 export function PurchaseOrdersPage() {
   const { data = [], isPending, isError, error, refetch } = usePOs()
   const canEdit = usePermission("purchaseOrders", "edit")
+  const canCreate = usePermission("purchaseOrders", "create")
+  const [picking, setPicking] = useState(false)
   const [search, setSearch] = useState("")
   const [status, setStatus] = useState(ALL)
   const [editing, setEditing] = useState<PORow | null>(null)
@@ -41,7 +45,7 @@ export function PurchaseOrdersPage() {
 
   return (
     <PageContainer>
-      <PageHeader title="Purchase orders" description="A PO record opens when an inspector is assigned. Click a row to record the client's PO." />
+      <PageHeader title="Purchase orders" description="A PO record opens when an inspector is assigned, or create one when the client's PO arrives earlier. Click a row to record or update it." actions={canCreate && <Button onClick={() => setPicking(true)}><Plus /> New PO</Button>} />
       <Card className="gap-0 overflow-hidden py-0">
         <div className="border-b p-4">
           <FilterBar showReset={!!search || status !== ALL} onReset={() => { setSearch(""); setStatus(ALL) }}>
@@ -57,6 +61,7 @@ export function PurchaseOrdersPage() {
         )}
       </Card>
       <PoDialog po={editing} onClose={() => setEditing(null)} />
+      <NewPoDialog open={picking} onOpenChange={setPicking} existing={data} onPick={setEditing} />
     </PageContainer>
   )
 }

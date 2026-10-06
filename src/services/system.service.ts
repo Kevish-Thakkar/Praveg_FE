@@ -113,6 +113,6 @@ export const searchService = {
       ...db.projects.map((p) => ({ id: p.id, group: "Projects" as const, title: `${p.code} · ${p.title}`, subtitle: `${db.clients.find((c) => c.id === p.clientId)?.name ?? ""} · ${p.stage}`, href: `/projects/${p.id}` })),
       ...db.inspectors.map((i) => ({ id: i.id, group: "Inspectors" as const, title: i.name, subtitle: `${i.skills.slice(0, 3).join(", ")} · ${i.address.city}`, href: `/inspectors/${i.id}` })),
       ...db.clients.map((c) => ({ id: c.id, group: "Clients" as const, title: c.name, subtitle: `${c.address.city}, ${c.address.country}`, href: `/clients/${c.id}` })),
-      ...db.vendors.map((v) => ({ id: v.id, group: "Vendors" as const, title: v.name, subtitle: `${db.clients.find((c) => c.id === v.clientId)?.name ?? ""} · ${v.address.city}`, href: `/vendors` })),
+      ...db.vendors.map((v) => ({ id: v.id, group: "Vendors" as const, title: v.name, subtitle: `${v.address.city}, ${v.address.state}`, href: `/vendors` })),
     ]),
 }

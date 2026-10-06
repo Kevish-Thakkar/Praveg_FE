@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { useNavigate, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { Pencil, Plus, Trash2, Truck, UserRound } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,13 +22,13 @@ import { DetailSkeleton } from "@/components/feedback/LoadingState"
 import { ErrorState } from "@/components/feedback/ErrorState"
 import { DocumentsPanel } from "@/features/documents/components/DocumentsPanel"
 import { useProjects } from "@/features/projects/hooks"
-import { useSaveVendor, useVendors } from "@/features/vendors/hooks"
+import { useVendors } from "@/features/vendors/hooks"
 import { MapPreview } from "@/components/forms/address"
 import { StageTrack } from "@/components/common/StageTrack"
 import { formatAddress } from "@/constants/geo"
 import type { ClientContact } from "@/types/domain"
 import { useClient, useDeleteClient, useRemoveContact, useSaveClient, useSaveContact } from "./hooks"
-import { ClientFormDrawer, VendorFormDrawer } from "./components/ClientFormDrawer"
+import { ClientFormDrawer } from "./components/ClientFormDrawer"
 
 const contactSchema = z.object({
   name: z.string().trim().min(2, "Name is required"),
@@ -43,9 +43,7 @@ export function ClientDetailPage() {
   const navigate = useNavigate()
   const q = useClient(clientId)
   const projects = useProjects()
-  const vendors = useVendors(clientId)
-  const saveVendor = useSaveVendor()
-  const [vendorOpen, setVendorOpen] = useState(false)
+  const vendors = useVendors()
   const save = useSaveClient()
   const del = useDeleteClient()
   const saveContact = useSaveContact(clientId)
@@ -75,6 +73,10 @@ export function ClientDetailPage() {
   if (q.isError) return <PageContainer><ErrorState message={q.error.message} onRetry={() => void q.refetch()} /></PageContainer>
   const c = q.data
   const clientProjects = (projects.data ?? []).filter((p) => p.clientId === c.id)
+  const clientVendors = (vendors.data ?? [])
+    .map((v) => ({ v, jobs: clientProjects.filter((p) => p.vendorIds.includes(v.id)).length }))
+    .filter((x) => x.jobs > 0)
+    .sort((x, y) => y.jobs - x.jobs || x.v.name.localeCompare(y.v.name))
 
   return (
     <PageContainer>
@@ -113,13 +115,13 @@ export function ClientDetailPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="gap-0 overflow-hidden pb-0">
           <CardHeader className="border-b pb-4">
-            <CardTitle>Vendors</CardTitle>
-            <CardDescription>The client's suppliers / manufacturers where jobs take place</CardDescription>
-            {canEdit && <CardAction><Button size="sm" variant="outline" onClick={() => setVendorOpen(true)}><Plus /> Add vendor</Button></CardAction>}
+            <CardTitle>Vendors on this client's projects</CardTitle>
+            <CardDescription>Vendors are managed separately and chosen on each project</CardDescription>
+            <CardAction><Button asChild size="sm" variant="ghost"><Link to="/vendors">All vendors</Link></Button></CardAction>
           </CardHeader>
-          {(vendors.data ?? []).length === 0 ? <EmptyState compact icon={Truck} title="No vendors yet" description="Add the vendors of this client so projects can refer to them." /> : (
-            <ul className="divide-y">{(vendors.data ?? []).map((v) => (
-              <li key={v.id} className="flex items-center justify-between gap-3 px-6 py-3"><span className="min-w-0"><span className="block truncate text-sm font-medium">{v.name}</span><span className="block truncate text-xs text-muted-foreground">{v.address.city}, {v.address.state} · {v.email}</span></span><span className="shrink-0 text-xs text-muted-foreground tabular-nums">{v.projectCount} job(s)</span></li>
+          {clientVendors.length === 0 ? <EmptyState compact icon={Truck} title="No vendors on these projects" description="Select vendors when creating or editing a project." /> : (
+            <ul className="divide-y">{clientVendors.map(({ v, jobs }) => (
+              <li key={v.id} className="flex items-center justify-between gap-3 px-6 py-3"><span className="min-w-0"><span className="block truncate text-sm font-medium">{v.name}</span><span className="block truncate text-xs text-muted-foreground">{v.address.city}, {v.address.state} · {v.email}</span></span><span className="shrink-0 text-xs text-muted-foreground tabular-nums">{jobs} job(s)</span></li>
             ))}</ul>
           )}
         </Card>
@@ -135,7 +137,6 @@ export function ClientDetailPage() {
       <DocumentsPanel entityType="Client" entityId={c.id} categories={["Other", "Technical Document", "Template"]} title="Client documents" description="Framework agreements, client specifications and templates." />
 
       <ClientFormDrawer open={editing} onOpenChange={setEditing} initial={c} saving={save.isPending} onSubmit={(v) => save.mutate({ id: c.id, input: v }, { onSuccess: () => setEditing(false) })} />
-      <VendorFormDrawer open={vendorOpen} onOpenChange={setVendorOpen} defaultClientId={c.id} saving={saveVendor.isPending} onSubmit={(v) => saveVendor.mutate({ input: v }, { onSuccess: () => setVendorOpen(false) })} />
       <FormDialog open={!!contact} onOpenChange={(o) => !o && setContact(null)} title={contact === "new" ? "Add contact" : "Edit contact"} formId="contact-form" loading={saveContact.isPending}>
         <Form {...form}>
           <form id="contact-form" noValidate className="space-y-4" onSubmit={form.handleSubmit((v) => saveContact.mutate({ ...v, id: contact !== "new" && contact ? contact.id : undefined }, { onSuccess: () => setContact(null) }))}>
@@ -147,7 +148,7 @@ export function ClientDetailPage() {
         </Form>
       </FormDialog>
       <ConfirmDialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)} title="Remove contact?" description={`${removing?.name} will no longer be suggested on client emails.`} confirmLabel="Remove" destructive loading={removeContact.isPending} onConfirm={() => removing && removeContact.mutate(removing.id, { onSuccess: () => setRemoving(null) })} />
-      <ConfirmDialog open={confirmDelete} onOpenChange={setConfirmDelete} title={`Delete ${c.name}?`} description="Clients with projects cannot be deleted. Deleting a client also deletes its vendors." confirmLabel="Delete client" destructive loading={del.isPending} onConfirm={() => del.mutate(c.id, { onSuccess: () => navigate("/clients") })} />
+      <ConfirmDialog open={confirmDelete} onOpenChange={setConfirmDelete} title={`Delete ${c.name}?`} description="Clients with projects cannot be deleted. Vendors are not affected." confirmLabel="Delete client" destructive loading={del.isPending} onConfirm={() => del.mutate(c.id, { onSuccess: () => navigate("/clients") })} />
     </PageContainer>
   )
 }

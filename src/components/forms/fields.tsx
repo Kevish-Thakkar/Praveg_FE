@@ -260,7 +260,8 @@ export function MultiSelectField<T extends FieldValues>({ control, name, label, 
                       {options.map((o) => (
                         <CommandItem key={o.value} value={o.label} onSelect={() => toggle(o.value)}>
                           <Check className={cn("text-primary-text", value.includes(o.value) ? "opacity-100" : "opacity-0")} />
-                          {o.label}
+                          <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                          {o.hint && <span className="shrink-0 text-xs text-muted-foreground">{o.hint}</span>}
                         </CommandItem>
                       ))}
                     </CommandGroup>

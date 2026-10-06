@@ -38,7 +38,7 @@ export function InspectorsPanel({ p, candidates, canEdit, request, sendCvs, sele
         <section className="space-y-4">
           <SectionHeader
             title="CVs for the client"
-            description={p.pricing ? "Choose the CVs to send. The client price is included in the email." : "The client price must be set by Accounts before CVs can be sent."}
+            description={p.pricing ? "Choose the CVs to send. The client price is included in the email." : "Set the client price before sending CVs."}
             actions={<Button disabled={sendCvs.disabled} title={sendCvs.hint} onClick={sendCvs.run}><Send /> {sendCvs.label}</Button>}
           />
           <ul className="divide-y rounded-xl border bg-card">

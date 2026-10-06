@@ -101,10 +101,9 @@ export interface Client {
   createdAt: ISODateTime;
 }
 
-/** A-2: each vendor belongs to one client. */
+/** Vendors are a separate master (not owned by a client); a project can involve several. */
 export interface Vendor {
   id: ID;
-  clientId: ID;
   name: string;
   mobile: string;
   email: string;
@@ -232,7 +231,8 @@ export interface Project {
   code: string;
   title: string;
   clientId: ID;
-  vendorId: ID | null;
+  /** vendors (manufacturers / fabricators) involved in this job — none, one or several */
+  vendorIds: ID[];
   /** → ProjectType */
   serviceId: ID;
   organizationId: ID;
@@ -301,6 +301,8 @@ export interface Visit {
   expenses: number | null;
   notes: string;
   completedAt: ISODateTime | null;
+  /** earlier dates of this visit, oldest first, with the reason given for each move */
+  reschedules?: { from: ISODate; to: ISODate; reason: string; at: ISODateTime; byId: ID }[];
 }
 
 export type ReminderType = "Inspector" | "Job" | "Job Date" | "Report" | "Payment";

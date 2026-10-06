@@ -2,7 +2,8 @@ import type { Role } from "@/types/domain"
 
 /**
  * Role-permission matrix (v2: three roles).
- *  - Coordinator: runs operations — clients, vendors, inspectors, projects and the job workflow.
+ *  - Coordinator: runs operations — clients, vendors, inspectors, projects and the job workflow;
+ *    can also set the client price and create / record the client's PO.
  *  - Accountant: sets the client price per job, invoices, payment follow-up.
  *  - Super Admin: everything, including configuration.
  * Still a draft: the proposal says the final matrix is confirmed with Praveg (§3, §9).
@@ -69,9 +70,9 @@ export const PERMISSIONS: Matrix = {
   Coordinator: {
     dashboard: V,
     projects: ALL,
-    pricing: V,
+    pricing: VCE,
     candidates: VCE,
-    purchaseOrders: VC,
+    purchaseOrders: VCE,
     visits: VCE,
     calendar: V,
     reminders: ALL,

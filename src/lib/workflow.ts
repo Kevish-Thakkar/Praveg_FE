@@ -65,12 +65,12 @@ export function describeProject(p: Project, cands: Candidate[], nearbyCount: num
       }
     case "Inspector Assigned": {
       const next: ProjectInsight["next"] = available.length
-        ? priced ? { key: "sendCvs", label: `Send ${available.length} CV${available.length === 1 ? "" : "s"}`, owner: "Coordinator" } : { key: "price", label: "Set client price", owner: "Accounts" }
+        ? priced ? { key: "sendCvs", label: `Send ${available.length} CV${available.length === 1 ? "" : "s"}`, owner: "Coordinator" } : { key: "price", label: "Set client price", owner: "Coordinator" }
         : pending ? { key: "replies", label: "Record replies", owner: "Inspector" } : { key: "request", label: "Request more inspectors", owner: "Coordinator" }
       return {
         index, checkpoint: `${available.length}/${requested} available${pending ? ` · ${pending} awaiting` : ""}${priced ? "" : " · price pending"}`,
         substeps: [{ label: "Availability requested", done: true }, { label: "Replies received", done: pending === 0 }, { label: "Client price set", done: priced }],
-        next, nextDate: needed, due: dueTone(p.requiredBy), blocked: available.length && !priced ? "Waiting for Accounts to set the client price" : null,
+        next, nextDate: needed, due: dueTone(p.requiredBy), blocked: null,
       }
     }
     case "CVs Sent":

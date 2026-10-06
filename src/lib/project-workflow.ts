@@ -155,21 +155,21 @@ export function operationsTrack({ p, candidates = [], pos = [], visits = [] }: W
   /* 2 — Inspector sourcing */
   const noneAvailable = asked > 0 && pending === 0 && availableCount === 0
   const waitingPrice = availableCount > 0 && !p.pricing
-  const sourcingStatus: CheckpointStatus = pastSourcing ? "completed" : !reqDone ? "not_started" : noneAvailable ? "blocked" : waitingPrice && pending === 0 ? "blocked" : "in_progress"
+  const sourcingStatus: CheckpointStatus = pastSourcing ? "completed" : !reqDone ? "not_started" : noneAvailable ? "blocked" : "in_progress"
   const sourcing = cp({
     id: "sourcing", track: "operations", title: "Inspector sourcing",
-    description: "Availability & confirmation requests go to the shortlisted inspectors. Once someone is available and Accounts has set the client price, their CVs and the price are sent to the client.",
+    description: "Availability & confirmation requests go to the shortlisted inspectors. Once someone is available and the client price is set (by the coordinator or Accounts), their CVs and the price are sent to the client.",
     status: sourcingStatus,
     statusNote: pastSourcing ? `${plural(cvsSent.length || 1, "CV")} sent ${d(firstCv)}` : asked ? `${availableCount}/${asked} available${pending ? ` · ${pending} awaiting` : ""}` : "Starts when availability is requested",
     owner: "Coordinator", ownerName: p.coordinatorName,
     startDate: min(candidates.map((x) => x.requestedAt)), dueDate: null, completedAt: firstCv,
     dependencies: ["pricing"],
-    blockedReason: sourcingStatus === "blocked" ? (noneAvailable ? "No inspector is available — request more inspectors" : "Waiting for Accounts to set the client price") : null,
+    blockedReason: sourcingStatus === "blocked" ? "No inspector is available — request more inspectors" : null,
     substeps: [
       { id: "requested", label: "Availability requested", status: asked ? "done" : "pending", at: min(candidates.map((x) => x.requestedAt)), note: asked ? plural(asked, "inspector") : undefined },
       { id: "replies", label: "Replies received", status: !asked ? "pending" : pending === 0 ? "done" : "current", note: asked ? `${replied} of ${asked} replied` : undefined },
       { id: "available", label: "Inspector available", status: availableCount ? "done" : noneAvailable ? "blocked" : "pending", note: availableCount ? `${plural(availableCount, "inspector")} available` : noneAvailable ? "Nobody available" : undefined },
-      { id: "price", label: "Client price set by Accounts", status: p.pricing ? "done" : waitingPrice ? "blocked" : "pending", at: p.pricing?.setAt, note: p.pricing ? "Set" : p.pricingRequestedAt ? `Requested ${d(p.pricingRequestedAt)}` : "Not requested yet" },
+      { id: "price", label: "Client price set", status: p.pricing ? "done" : waitingPrice ? "current" : "pending", at: p.pricing?.setAt, note: p.pricing ? "Set" : p.pricingRequestedAt ? `Requested ${d(p.pricingRequestedAt)}` : "Not requested yet" },
       { id: "cvs", label: "CVs & price sent to client", status: pastSourcing ? "done" : "pending", at: firstCv, note: cvsSent.length ? plural(cvsSent.length, "CV") : undefined },
     ],
     // ordered by what should happen next: the first allowed action becomes the primary button
@@ -236,7 +236,7 @@ export function operationsTrack({ p, candidates = [], pos = [], visits = [] }: W
       ...(assigned && !c.jobDoneAt ? ["scheduleJob" as const] : []),
       ...(assigned ? (["scheduleVisit", "recordPO"] as const) : []),
     ],
-    activity: /Job scheduled|visit|Recorded PO|reminder|Job done/i,
+    activity: /Job scheduled|visit|(Recorded|Created) PO|reminder|Job done/i,
   })
 
   /* 5 — Report & completion */
@@ -283,10 +283,10 @@ export function financeTrack({ p, candidates = [], pos = [] }: WorkflowInput): C
   /* F1 — Client pricing */
   const pricing = cp({
     id: "pricing", track: "finance", title: "Client pricing",
-    description: "Accounts sets the price the client pays for this job (rate basis, units, rate). The coordinator cannot send CVs until it is set.",
+    description: "The price the client pays for this job (rate basis, units, rate), set by the coordinator or Accounts. CVs can't be sent until it is set.",
     status: p.pricing ? "completed" : p.pricingRequestedAt ? "in_progress" : "not_started",
     statusNote: p.pricing ? formatMoney(priceTotal, cur) : p.pricingRequestedAt ? `Requested ${d(p.pricingRequestedAt)}` : "Not requested yet",
-    owner: "Accounts", startDate: p.pricingRequestedAt, dueDate: null, completedAt: p.pricing?.setAt ?? null,
+    owner: "Coordinator / Accounts", startDate: p.pricingRequestedAt, dueDate: null, completedAt: p.pricing?.setAt ?? null,
     dependencies: [], blockedReason: null,
     substeps: [
       { id: "requested", label: "Price requested by coordinator", status: p.pricingRequestedAt ? "done" : p.pricing ? "skipped" : "pending", at: p.pricingRequestedAt, note: !p.pricingRequestedAt && p.pricing ? "Set without a request" : undefined },
@@ -305,18 +305,18 @@ export function financeTrack({ p, candidates = [], pos = [] }: WorkflowInput): C
   const poStatus: CheckpointStatus = noPoNeeded ? "skipped" : !po ? "not_started" : !received ? "in_progress" : matches ? "completed" : "blocked"
   const purchaseOrder = cp({
     id: "po", track: "finance", title: "Purchase order",
-    description: "A PO record opens when the inspector is assigned. Accounts records the client's PO number, date and amount and checks it against the client price.",
+    description: "A PO record opens when the inspector is assigned, or the coordinator / Accounts creates it when the client's PO arrives earlier. The PO number, date and amount are checked against the client price.",
     status: poStatus,
-    statusNote: noPoNeeded ? "No PO on record" : !po ? "Opens on inspector assignment" : !received ? "Awaiting client PO" : `${po.poNumber}${matches ? "" : " · amount differs"}`,
-    owner: received ? "Accounts" : "Client", startDate: null, dueDate: null, completedAt: po?.issueDate ?? null,
+    statusNote: noPoNeeded ? "No PO on record" : !po ? "No PO yet" : !received ? "Awaiting client PO" : `${po.poNumber}${matches ? "" : " · amount differs"}`,
+    owner: received ? "Coordinator / Accounts" : "Client", startDate: null, dueDate: null, completedAt: po?.issueDate ?? null,
     dependencies: ["onboarding"],
     blockedReason: poStatus === "blocked" ? `PO amount ${formatMoney(po!.amount, po!.currency)} differs from the client price ${formatMoney(priceTotal, cur)}` : null,
     substeps: [
-      { id: "opened", label: "PO record opened", status: po ? "done" : "pending", note: po ? "On inspector assignment" : undefined },
+      { id: "opened", label: "PO record opened", status: po ? "done" : "pending", note: po ? undefined : "Created manually or on inspector assignment" },
       { id: "received", label: "Client PO received", status: received ? "done" : "pending", at: po?.issueDate, note: received ? po!.poNumber : undefined },
       { id: "match", label: "PO amount matches client price", status: !received ? "pending" : matches ? "done" : "blocked", note: received ? `${formatMoney(po!.amount, po!.currency)} vs ${formatMoney(priceTotal, cur)}` : undefined },
     ],
-    actions: po ? ["recordPO"] : [],
+    actions: ["recordPO"],
     activity: /PO /,
   })
 

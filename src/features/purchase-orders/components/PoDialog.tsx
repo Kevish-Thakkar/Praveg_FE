@@ -19,7 +19,7 @@ const schema = z.object({
 }).refine((v) => v.status === "Awaiting PO" || (v.poNumber.length >= 2 && !!v.issueDate), { path: ["poNumber"], message: "Enter the PO number and date once received" })
 type Values = z.infer<typeof schema>
 
-/** Record or update the client's PO for a job. */
+/** Create, record or update the client's PO for a job (po.id "" = new record). */
 export function PoDialog({ po, onClose }: { po: PORow | null; onClose: () => void }) {
   const { currencyOptions } = useLookupOptions()
   const save = useSavePO()
@@ -28,7 +28,7 @@ export function PoDialog({ po, onClose }: { po: PORow | null; onClose: () => voi
     if (po) form.reset({ poNumber: po.poNumber, issueDate: po.issueDate, amount: po.amount, currency: po.currency, status: po.status === "Awaiting PO" ? "Received" : po.status, notes: po.notes })
   }, [po, form])
   return (
-    <FormDialog open={!!po} onOpenChange={(o) => !o && onClose()} title={po?.poNumber ? `PO ${po.poNumber}` : "Record client PO"} description={po ? `${po.projectCode} · ${po.clientName}` : ""} formId="po-form" loading={save.isPending}>
+    <FormDialog open={!!po} onOpenChange={(o) => !o && onClose()} title={po?.poNumber ? `PO ${po.poNumber}` : po && !po.id ? "Create client PO" : "Record client PO"} description={po ? `${po.projectCode} · ${po.clientName}` : ""} formId="po-form" loading={save.isPending}>
       <Form {...form}>
         <form id="po-form" noValidate className="space-y-4" onSubmit={form.handleSubmit((v) => po && save.mutate({ projectId: po.projectId, input: v }, { onSuccess: onClose }))}>
           <FormGrid>

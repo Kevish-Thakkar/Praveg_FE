@@ -35,7 +35,7 @@ export type Collection = {
   [K in keyof Database]: Database[K] extends Array<{ id: string }> ? K : never
 }[keyof Database]
 
-const STORAGE_KEY = "praveg-ops-mockdb-v4"
+const STORAGE_KEY = "praveg-ops-mockdb-v5"
 
 function seed(): Database {
   return structuredClone({
