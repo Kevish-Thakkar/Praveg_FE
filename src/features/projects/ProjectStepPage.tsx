@@ -24,6 +24,7 @@ import { useProjectActions } from "./components/workspace/useProjectActions"
 import { useProjectTracks } from "./components/workspace/useProjectTracks"
 import { toOverlayActions } from "./components/workspace/ProjectStepOverlay"
 import { VISIT_STEPS } from "./components/workspace/visit-steps"
+import { ClientCommentsHistory } from "./components/workflow/ClientCommentsHistory"
 import { VisitsPopover } from "@/features/visits/components/VisitsPopover"
 
 /** Full details of one workflow checkpoint, opened from the checkpoint overlay. */
@@ -93,6 +94,7 @@ function StepDetails({ p, candidates }: { p: ProjectRow; candidates: CandidateRo
           <CardContent className="space-y-7 px-6">
             <CheckpointSummary c={c} all={all} onNavigate={goTo} />
             <CheckpointSteps c={c} />
+            {c.id === "closure" && <ClientCommentsHistory p={p} />}
           </CardContent>
         </Card>
         <Card className="py-5">

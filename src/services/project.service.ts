@@ -37,6 +37,33 @@ export interface ProjectRow extends Project {
   locked: boolean
   /** client replies received in the completion thread since the report was last sent */
   clientReplies: number
+  /** every recorded client comment on the report, oldest first */
+  clientComments: ClientCommentEntry[]
+}
+
+export interface ClientCommentEntry extends ClientComment {
+  outcome: "Changes requested" | "Job completed"
+  /** which issue of the report the comment is about — 1 is the original */
+  reportIssue: number
+  recordedByName: string
+  emailThreadId: string | null
+}
+
+function clientCommentHistory(p: Project): ClientCommentEntry[] {
+  const c = p.completion
+  const entry = (x: ClientComment, outcome: ClientCommentEntry["outcome"], reportIssue: number): ClientCommentEntry => {
+    const email = x.emailId ? db.emails.find((e) => e.id === x.emailId) : undefined
+    return {
+      ...x, outcome, reportIssue,
+      recordedByName: db.users.find((u) => u.id === x.recordedById)?.name ?? "—",
+      emailThreadId: email ? (email.threadId ?? email.id) : null,
+    }
+  }
+  const changes = c.changeRequests ?? []
+  return [
+    ...changes.map((x, i) => entry(x, "Changes requested", i + 1)),
+    ...(c.clientComment ? [entry(c.clientComment, "Job completed", changes.length + 1)] : []),
+  ]
 }
 
 function clientRepliesSince(p: Project) {
@@ -76,6 +103,7 @@ export function toProjectRow(p: Project): ProjectRow {
     billingInsight: describeBilling(p, STAGES.find((x) => x.stage === p.stage)?.short ?? p.stage),
     locked: p.stage === "Cancelled" || (p.stage === "Completed" && role === "Coordinator"),
     clientReplies,
+    clientComments: clientCommentHistory(p),
   }
 }
 
