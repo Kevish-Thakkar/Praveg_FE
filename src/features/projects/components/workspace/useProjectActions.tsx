@@ -14,6 +14,8 @@ import { PoDialog } from "@/features/purchase-orders/components/PoDialog"
 import { newPoFor } from "@/features/purchase-orders/po-utils"
 import { useBillingActions } from "@/features/finance/components/BillingActions"
 import type { CheckpointActionKey } from "@/lib/project-workflow"
+import { pendingChangeRequest } from "@/lib/workflow"
+import { ClientCommentDialog, type ClientCommentMode } from "../workflow/ClientCommentDialog"
 import type { PORow, ProjectRow } from "@/services"
 import { PricingPanel } from "../workflow/PricingPanel"
 import { RequestInspectorsDialog } from "../workflow/AvailabilityStep"
@@ -52,7 +54,9 @@ const META: Record<CheckpointActionKey, { label: string; icon: AppIcon }> = {
   scheduleVisit: { label: "Schedule visit", icon: MapPinPlus },
   recordPO: { label: "Record PO", icon: ReceiptText },
   uploadReport: { label: "Upload report", icon: FileUp },
-  sendCompletion: { label: "Send completion email", icon: Mail },
+  sendCompletion: { label: "Send report to client", icon: Mail },
+  completeJob: { label: "Complete job", icon: CircleCheck },
+  requestChanges: { label: "Changes requested", icon: MessageSquareWarning },
   sendDocuments: { label: "Send documents to client", icon: Send },
   uploadInvoice: { label: "Upload invoice", icon: FileUp },
   sendPaymentReminder: { label: "Send payment reminder", icon: BellRing },
@@ -95,6 +99,8 @@ export function useProjectActions({ p, candidates, pos, onGoTo }: { p: ProjectRo
   const selectedCvs = cvSelection ?? new Set(unsent.map((c) => c.id))
   const po = pos[0] ?? null
   const [poEditing, setPoEditing] = useState<PORow | null>(null)
+  const [comment, setComment] = useState<ClientCommentMode | null>(null)
+  const changesPending = !!pendingChangeRequest(p.completion)
 
   const resolve = useCallback((key: CheckpointActionKey): ResolvedAction | null => {
     if (cancelled) return null
@@ -117,15 +123,17 @@ export function useProjectActions({ p, candidates, pos, onGoTo }: { p: ProjectRo
       case "scheduleVisit": return canVisit && p.assignedInspectorId ? a(() => setDialog("visit")) : null
       // no PO record yet → create one now (the client's PO can arrive before the inspector is assigned)
       case "recordPO": return canPO ? a(() => setPoEditing(po ?? newPoFor(p)), po ? (po.poNumber ? { label: "Update PO" } : {}) : { label: "Create PO" }) : null
-      case "uploadReport": return canEdit ? a(() => setDialog("report"), p.completion.reportUploadedAt ? { label: "Add report files" } : {}) : null
-      case "sendCompletion": return canEdit ? a(() => setDialog("completion")) : null
+      case "uploadReport": return canEdit ? a(() => setDialog("report"), changesPending ? { label: "Upload revised report" } : p.completion.reportUploadedAt ? { label: "Add report files" } : {}) : null
+      case "sendCompletion": return canEdit ? a(() => setDialog("completion"), changesPending ? { label: "Send revised report" } : {}) : null
+      case "completeJob": return canEdit ? a(() => setComment("complete"), p.clientReplies ? { label: "Review comment & complete" } : { label: "Record comment & complete" }) : null
+      case "requestChanges": return canEdit ? a(() => setComment("changes")) : null
       case "sendDocuments": return canSendDocs && !p.locked ? a(() => setDialog("documents")) : null
       case "uploadInvoice": return canBill ? a(() => billing.run(p, "uploadInvoice")) : null
       case "sendPaymentReminder": return canBill ? a(() => billing.run(p, "remind")) : null
       case "sendPaymentFollowUp": return canBill ? a(() => billing.run(p, "followUp")) : null
       case "confirmPayment": return canBill ? a(() => billing.run(p, "confirmPayment")) : null
     }
-  }, [cancelled, canEdit, canCandidates, canPrice, canVisit, canPO, canSendDocs, canBill, p, po, navigate, onGoTo, requestPrice, interview, assign, reminder, jobDone, billing, selectedCvs.size])
+  }, [cancelled, canEdit, canCandidates, canPrice, canVisit, canPO, canSendDocs, canBill, p, po, navigate, onGoTo, requestPrice, interview, assign, reminder, jobDone, billing, selectedCvs.size, changesPending])
 
   const resolveAll = useCallback((keys: CheckpointActionKey[]) => keys.map(resolve).filter(Boolean) as ResolvedAction[], [resolve])
 
@@ -147,10 +155,12 @@ export function useProjectActions({ p, candidates, pos, onGoTo }: { p: ProjectRo
       />
       <PresetComposer
         open={dialog === "completion"} onOpenChange={(o) => setDialog(o ? "completion" : null)} projectId={p.id} kind="Completion"
-        title="Send completion email" description="The report and documents are attached. Sending marks the project Completed and notifies Accounts."
-        sendLabel="Send & complete" sending={completion.isPending}
+        title={changesPending ? "Send revised report to client" : "Send report to client"}
+        description="The report and documents are attached. The job is completed once the client's comment on the report is recorded."
+        sendLabel="Send to client" sending={completion.isPending}
         onSend={(email) => completion.mutate({ projectId: p.id, email }, { onSuccess: () => setDialog(null) })}
       />
+      {comment && <ClientCommentDialog p={p} mode={comment} onClose={() => setComment(null)} />}
       <PresetComposer
         open={dialog === "documents"} onOpenChange={(o) => setDialog(o ? "documents" : null)} projectId={p.id} kind="General"
         title="Send documents to client" description={`${p.code} · ${p.clientName}`}

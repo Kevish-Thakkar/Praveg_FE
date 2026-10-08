@@ -120,7 +120,7 @@ function InvoiceDialog({ row, onClose }: { row: BillingRow | null; onClose: () =
         }, () => !file[0] && setFileError(true))}>
           <div className="space-y-1.5">
             <p className="text-sm font-medium">Invoice file <span className="text-danger" aria-hidden>*</span></p>
-            <FileDropzone files={file} onChange={(f) => { setFile(f); setFileError(false) }} multiple={false} accept=".pdf,.jpg,.jpeg,.png" maxSizeMb={10} hint="PDF or image · up to 10 MB" invalid={fileError} />
+            <FileDropzone files={file} onChange={(f) => { setFile(f); setFileError(false) }} multiple={false} accept=".pdf,.jpg,.jpeg,.png" hint="PDF or image" invalid={fileError} />
             {fileError && <p className="text-sm text-danger" role="alert">Attach the invoice file</p>}
           </div>
           <div className={cn("flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm", !poReceived ? "border-warning/40 bg-warning-soft/50" : po!.amount !== row?.priceTotal ? "border-warning/40 bg-warning-soft/50" : "bg-muted/50")}>

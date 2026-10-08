@@ -80,7 +80,7 @@ function InspectorForm({ initial }: { initial?: InspectorRow }) {
   const back = initial ? `/inspectors/${initial.id}` : "/inspectors"
 
   const checkCv = () => {
-    const err = !initial && cv.length === 0 ? "Upload the inspector's CV" : cv[0] && cv[0].size > 10 * 1024 * 1024 ? "CV must be 10 MB or smaller" : null
+    const err = !initial && cv.length === 0 ? "Upload the inspector's CV" : null
     setCvError(err)
     return !err
   }
@@ -155,7 +155,7 @@ function InspectorForm({ initial }: { initial?: InspectorRow }) {
                   {currentCv && cv.length === 0 && (
                     <p className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2.5 text-sm"><FileTypeIcon name={currentCv.name} className="size-5" /> Current: <span className="font-medium">{currentCv.name}</span></p>
                   )}
-                  <FileDropzone files={cv} onChange={(f) => { setCv(f); setCvError(null) }} multiple={false} accept=".pdf,.doc,.docx" maxSizeMb={10} hint="PDF or Word · up to 10 MB" invalid={!!cvError} />
+                  <FileDropzone files={cv} onChange={(f) => { setCv(f); setCvError(null) }} multiple={false} accept=".pdf,.doc,.docx" hint="PDF or Word" invalid={!!cvError} />
                   {cvError && <p className="text-sm text-danger" role="alert">{cvError}</p>}
                 </div>
               )}

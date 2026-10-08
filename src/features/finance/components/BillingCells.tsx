@@ -4,7 +4,7 @@ import { Money } from "@/components/common/Money"
 import { TONE_CLASSES } from "@/constants/status"
 import { formatDate } from "@/lib/dates"
 import { cn } from "@/lib/utils"
-import type { BillingNextKey } from "@/lib/workflow"
+import { closedAt, type BillingNextKey } from "@/lib/workflow"
 import type { ProjectRow } from "@/services"
 
 const OWNER_TEXT: Record<string, string> = { Accounts: "Accounts", Coordinator: "Waiting on coordinator", Client: "Waiting on client", "—": "" }
@@ -71,8 +71,10 @@ export function AmountDueCell({ p }: { p: ProjectRow }) {
 /** Job completion date (completion mail), or where the job is if not done yet. `withInspector` adds the inspector below 1536px, where the Inspector column is hidden. */
 export function CompletionCell({ p, withInspector }: { p: ProjectRow; withInspector?: boolean }) {
   const c = p.completion
-  const [date, note] = c.completionEmailSentAt
-    ? [formatDate(c.completionEmailSentAt, "dd MMM yyyy"), "Completion mail sent"]
+  const closed = closedAt(p)
+  const [date, note] = closed
+    ? [formatDate(closed, "dd MMM yyyy"), "Job completed"]
+    : c.completionEmailSentAt ? [formatDate(c.completionEmailSentAt, "dd MMM yyyy"), "Report sent · awaiting client comment"]
     : c.jobDoneAt ? [formatDate(c.jobDoneAt, "dd MMM yyyy"), "Job done · report awaited"]
       : p.schedule?.dates[0] ? ["—", `Scheduled ${formatDate(p.schedule.dates[0], "dd MMM")}`] : ["—", "Not scheduled"]
   return (

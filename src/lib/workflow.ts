@@ -1,6 +1,6 @@
 import { differenceInCalendarDays, parseISO } from "date-fns"
 import { todayISO, toISODate } from "@/lib/dates"
-import type { Candidate, Project, ProjectStage, RateBasis } from "@/types/domain"
+import type { Candidate, Completion, Project, ProjectStage, RateBasis } from "@/types/domain"
 
 /** The six workflow stages, in order. */
 export const STAGES: { stage: Exclude<ProjectStage, "Cancelled">; short: string; hint: string }[] = [
@@ -9,8 +9,35 @@ export const STAGES: { stage: Exclude<ProjectStage, "Cancelled">; short: string;
   { stage: "CVs Sent", short: "CVs sent", hint: "CVs of available inspectors + price sent to client" },
   { stage: "Inspector Confirmed", short: "Confirmed", hint: "Interview or direct selection; inspector assigned" },
   { stage: "Job Scheduled", short: "Scheduled", hint: "Job date set; reminders to inspector" },
-  { stage: "Completed", short: "Completed", hint: "Report received, completion mail sent to client" },
+  { stage: "Completed", short: "Completed", hint: "Report sent to client, client commented, job closed" },
 ]
+
+/** Report hand-off to the client after the job: report → sent → client comment (or changes → resend) → closed. */
+export type ClosureState = "notDone" | "reportAwaited" | "readyToSend" | "awaitingComment" | "changesRequested" | "closed"
+
+/** the client's latest change request, if it came after the last time the report was sent */
+export function pendingChangeRequest(c: Completion) {
+  const last = c.changeRequests?.at(-1)
+  return last && (!c.completionEmailSentAt || last.recordedAt > c.completionEmailSentAt) ? last : null
+}
+
+export function closureState(p: Pick<Project, "stage" | "completion">): ClosureState {
+  const c = p.completion
+  if (p.stage === "Completed") return "closed"
+  if (!c.jobDoneAt) return "notDone"
+  if (!c.reportUploadedAt) return "reportAwaited"
+  if (pendingChangeRequest(c)) return "changesRequested"
+  return c.completionEmailSentAt ? "awaitingComment" : "readyToSend"
+}
+
+/** a revised report has been uploaded since the client asked for changes */
+export function revisedReportReady(c: Completion) {
+  const req = pendingChangeRequest(c)
+  return !req || (!!c.reportUploadedAt && c.reportUploadedAt > req.recordedAt)
+}
+
+/** when the job was completed (client comment recorded); older projects closed on the completion mail */
+export const closedAt = (p: Pick<Project, "stage" | "completion">) => (p.stage === "Completed" ? p.completion.closedAt ?? p.completion.completionEmailSentAt : null)
 
 export function stageIndex(stage: ProjectStage): number {
   return STAGES.findIndex((s) => s.stage === stage)
@@ -18,7 +45,7 @@ export function stageIndex(stage: ProjectStage): number {
 
 export type NextActionKey =
   | "request" | "replies" | "price" | "sendCvs" | "decision" | "selection" | "interview" | "assign" | "schedule"
-  | "reminder" | "jobDone" | "report" | "completion" | "invoice" | "payment" | "none"
+  | "reminder" | "jobDone" | "report" | "completion" | "clientComment" | "revision" | "invoice" | "payment" | "none"
 
 export type Tone = "danger" | "warning" | "info" | "neutral" | "success"
 
@@ -47,7 +74,7 @@ function dueTone(date: string): ProjectInsight["due"] {
 }
 
 /** Everything the grid needs to show "where is this job and what's next" without opening it. */
-export function describeProject(p: Project, cands: Candidate[], nearbyCount: number, assignedName: string | null, opts: { hideAccounts?: boolean } = {}): ProjectInsight {
+export function describeProject(p: Project, cands: Candidate[], nearbyCount: number, assignedName: string | null, opts: { hideAccounts?: boolean; clientReplies?: number } = {}): ProjectInsight {
   const index = stageIndex(p.stage)
   const requested = cands.length
   const available = cands.filter((c) => c.availability === "Available")
@@ -103,7 +130,8 @@ export function describeProject(p: Project, cands: Candidate[], nearbyCount: num
         { label: "Reminder (1 day before)", done: days(first) < 1 || (p.schedule?.remindersSent.length ?? 0) > 0 },
         { label: "Job done", done: !!c.jobDoneAt },
         { label: "Report received", done: !!c.reportUploadedAt },
-        { label: "Completion mail", done: !!c.completionEmailSentAt },
+        { label: "Report sent to client", done: !!c.completionEmailSentAt },
+        { label: "Client comment", done: false },
       ]
       if (!c.jobDoneAt) {
         const started = days(first) <= 0
@@ -117,15 +145,27 @@ export function describeProject(p: Project, cands: Candidate[], nearbyCount: num
         const reportDue = toISODate(new Date(new Date(c.jobDoneAt).getTime() + 86400000))
         return { index, checkpoint: "Job done · report awaited", substeps, next: { key: "report", label: "Upload report", owner: "Inspector" }, nextDate: { label: "Report due", date: reportDue }, due: dueTone(reportDue), blocked: null }
       }
-      return { index, checkpoint: "Report received", substeps, next: { key: "completion", label: "Send completion mail", owner: "Coordinator" }, nextDate: null, due: { tone: "warning", text: "Ready" }, blocked: null }
+      const closure = closureState(p)
+      if (closure === "changesRequested") {
+        return revisedReportReady(c)
+          ? { index, checkpoint: "Revised report ready", substeps, next: { key: "completion", label: "Resend report to client", owner: "Coordinator" }, nextDate: null, due: { tone: "warning", text: "Ready" }, blocked: null }
+          : { index, checkpoint: "Client asked for report changes", substeps, next: { key: "revision", label: "Upload revised report", owner: "Coordinator" }, nextDate: null, due: { tone: "warning", text: "Changes" }, blocked: null }
+      }
+      if (closure === "awaitingComment") {
+        const replies = opts.clientReplies ?? 0
+        return replies
+          ? { index, checkpoint: `Client replied · ${replies} new`, substeps, next: { key: "clientComment", label: "Review comment & complete", owner: "Coordinator" }, nextDate: null, due: { tone: "warning", text: "Replied" }, blocked: null }
+          : { index, checkpoint: `Report sent ${fmt(c.completionEmailSentAt!.slice(0, 10))} · awaiting client comment`, substeps, next: { key: "clientComment", label: "Awaiting client comment", owner: "Client" }, nextDate: null, due: null, blocked: null }
+      }
+      return { index, checkpoint: "Report received", substeps, next: { key: "completion", label: "Send report to client", owner: "Coordinator" }, nextDate: null, due: { tone: "warning", text: "Ready" }, blocked: null }
     }
     case "Completed": {
+      const closed = closedAt(p)
       if (opts.hideAccounts) {
-        const sent = p.completion.completionEmailSentAt
-        return { index, checkpoint: sent ? `Completion mail sent ${fmt(sent.slice(0, 10))}` : "Completed", substeps: [{ label: "Completion mail sent", done: true }], next: { key: "none", label: "Done", owner: "—" }, nextDate: null, due: null, blocked: null }
+        return { index, checkpoint: closed ? `Completed ${fmt(closed.slice(0, 10))}` : "Completed", substeps: [{ label: "Client commented, job completed", done: true }], next: { key: "none", label: "Done", owner: "—" }, nextDate: null, due: null, blocked: null }
       }
       const b = p.billing
-      const substeps = [{ label: "Completion mail sent", done: true }, { label: "Invoice uploaded", done: !!b.invoice }, { label: "Payment received", done: b.status === "Paid" }]
+      const substeps = [{ label: "Job completed", done: true }, { label: "Invoice uploaded", done: !!b.invoice }, { label: "Payment received", done: b.status === "Paid" }]
       if (b.status === "Invoice Pending") return { index, checkpoint: "Invoice pending", substeps, next: { key: "invoice", label: "Upload invoice", owner: "Accounts" }, nextDate: null, due: { tone: "warning", text: "To invoice" }, blocked: null }
       if (b.status === "Awaiting Payment" && b.invoice) return { index, checkpoint: `${b.invoice.number} · awaiting payment`, substeps, next: { key: "payment", label: days(b.invoice.dueDate) < 0 ? "Send follow-up" : "Confirm payment", owner: "Accounts" }, nextDate: { label: "Payment due", date: b.invoice.dueDate }, due: dueTone(b.invoice.dueDate), blocked: null }
       return { index, checkpoint: b.status === "Paid" ? "Paid" : "Completed", substeps, next: { key: "none", label: "Done", owner: "—" }, nextDate: null, due: null, blocked: null }
@@ -189,8 +229,8 @@ export function describeBilling(p: Project, jobStage: string): BillingInsight {
     return { index: 3, label: "Awaiting payment", checkpoint: `${inv.number} · invoiced ${fmt(inv.date)}${sent}`, next, due: dueTone(inv.dueDate), dueDate: { label: "Payment due", date: inv.dueDate }, blocked: null }
   }
   if (b.status === "Invoice Pending") {
-    const sent = p.completion.completionEmailSentAt
-    return { index: 2, label: "Invoice pending", checkpoint: sent ? `Completion mail sent ${fmt(sent.slice(0, 10))}` : "Job completed", next: { key: "uploadInvoice", label: "Upload invoice", owner: "Accounts" }, due: { tone: "warning", text: "To invoice" }, dueDate: null, blocked: null }
+    const closed = closedAt(p)
+    return { index: 2, label: "Invoice pending", checkpoint: closed ? `Job completed ${fmt(closed.slice(0, 10))}` : "Job completed", next: { key: "uploadInvoice", label: "Upload invoice", owner: "Accounts" }, due: { tone: "warning", text: "To invoice" }, dueDate: null, blocked: null }
   }
   if (!p.pricing) {
     return {

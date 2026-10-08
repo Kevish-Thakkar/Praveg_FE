@@ -10,6 +10,7 @@ import type { TimelineEvent } from "@/components/common/ActivityTimeline"
 import { DetailSkeleton, TableSkeleton } from "@/components/feedback/LoadingState"
 import { ErrorState } from "@/components/feedback/ErrorState"
 import { CheckpointNode } from "@/components/workflow/CheckpointNode"
+import { CheckpointJumper } from "@/components/workflow/ProjectWorkflow"
 import {
   CheckpointActions, CheckpointActivity, CheckpointBlocked, CheckpointProgress, CheckpointSteps, CheckpointSummary, STATUS_CHIP, checkpointPosition,
 } from "@/components/workflow/CheckpointOverlay"
@@ -66,7 +67,10 @@ function StepDetails({ p, candidates }: { p: ProjectRow; candidates: CandidateRo
         <Breadcrumbs items={[{ label: "Projects", to: "/projects" }, { label: p.code, to: `/projects/${p.id}` }, { label: c.title }]} />
         <Card className="gap-0 py-0">
           <CardContent className="space-y-4 px-6 py-5">
-            <p className="text-xs font-semibold tracking-[0.04em] text-muted-foreground uppercase">{p.code} · {TRACK_LABEL[c.track]} · Step {pos + 1} of {siblings.length}</p>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <p className="text-xs font-semibold tracking-[0.04em] text-muted-foreground uppercase">{p.code} · {TRACK_LABEL[c.track]} · Step {pos + 1} of {siblings.length}</p>
+              <CheckpointJumper list={siblings} activeId={c.id} onSelect={(s) => goTo(s.id)} />
+            </div>
             <div className="flex items-start gap-4">
               <CheckpointNode status={c.status} progress={c.progress} number={pos + 1} size="lg" current />
               <div className="min-w-0 flex-1 space-y-2">

@@ -12,7 +12,7 @@ import { ErrorState } from "@/components/feedback/ErrorState"
 import { useProjects } from "@/features/projects/hooks"
 import { usePOs } from "@/features/execution/hooks"
 import { useHiddenColumns, useUrlFilters, useUrlSearch } from "@/hooks/use-list-state"
-import type { BillingNextKey } from "@/lib/workflow"
+import { closedAt, type BillingNextKey } from "@/lib/workflow"
 import { financeTrack } from "@/lib/project-workflow"
 import { exportCsv } from "@/lib/csv"
 import { formatDate } from "@/lib/dates"
@@ -121,7 +121,7 @@ export function FinancePage() {
       ),
     },
     { id: "inspector", header: "Inspector", sortValue: (p) => p.assignedInspectorName ?? "~", hideBelow: "2xl", cell: (p) => <span className="block max-w-[8rem] text-sm whitespace-normal">{p.assignedInspectorName ?? <span className="text-muted-foreground">Not assigned</span>}</span> },
-    { id: "completed", header: "Job completed", sortValue: (p) => p.completion.completionEmailSentAt ?? p.completion.jobDoneAt ?? "~", exportValue: (p) => (p.completion.completionEmailSentAt ? formatDate(p.completion.completionEmailSentAt) : ""), hideBelow: "lg", cell: (p) => <CompletionCell p={p} withInspector /> },
+    { id: "completed", header: "Job completed", sortValue: (p) => closedAt(p) ?? p.completion.completionEmailSentAt ?? p.completion.jobDoneAt ?? "~", exportValue: (p) => { const at = closedAt(p); return at ? formatDate(at) : "" }, hideBelow: "lg", cell: (p) => <CompletionCell p={p} withInspector /> },
     { id: "stage", header: "Accounts progress", sortValue: urgency, exportValue: (p) => p.billingInsight.label, cell: (p) => (
       <div className="space-y-3">
         <CheckpointTrail list={financeTrack({ p, pos: posByProject.get(p.id) })} className="w-52" onOpen={() => setSheet(p.id)} />

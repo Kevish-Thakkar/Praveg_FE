@@ -57,8 +57,6 @@ export const documentService = {
   upload: (input: UploadInput) =>
     request(() => {
       if (!input.files.length) throw new ApiError("Choose at least one file", 422)
-      const oversize = input.files.find((f) => f.sizeKb > 25 * 1024)
-      if (oversize) throw new ApiError(`${oversize.name} exceeds the 25 MB limit`, 413)
       const now = new Date().toISOString()
       const created = input.files.map<DocumentFile>((f) => ({
         id: newId("doc"), name: f.name, category: f.category ?? input.category, entityType: input.entityType, entityId: input.entityId,

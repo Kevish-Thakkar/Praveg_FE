@@ -1,7 +1,7 @@
 import { differenceInCalendarDays, parseISO } from "date-fns"
 import { todayISO, toISODate } from "@/lib/dates"
 import { db, newId } from "@/mock/db"
-import { pricingTotal } from "@/lib/workflow"
+import { closedAt, pricingTotal } from "@/lib/workflow"
 import { currentUserId, useSessionStore } from "@/store/session.store"
 import type { BillingStatus, InvoiceDetails, PaymentDetails, Project } from "@/types/domain"
 import { ApiError, notFound, request } from "./api"
@@ -65,7 +65,7 @@ function toRow(p: Project): BillingRow {
     projectId: p.id, code: p.code, title: p.title, clientId: p.clientId, clientName: client?.name ?? "—",
     serviceName: db.projectTypes.find((t) => t.id === p.serviceId)?.name ?? "—",
     inspectorName: db.inspectors.find((i) => i.id === p.assignedInspectorId)?.name ?? "—",
-    completedAt: p.completion.completionEmailSentAt, status: p.billing.status, paymentTermsDays: client?.paymentTermsDays ?? 30,
+    completedAt: closedAt(p), status: p.billing.status, paymentTermsDays: client?.paymentTermsDays ?? 30,
     priceTotal: pricingTotal(p), currency: p.pricing?.currency ?? client?.currency ?? "INR",
     invoice: inv, payment: p.billing.payment, reminders: p.billing.reminders, daysToDue, dueState, suggestion, lastReminderAt: last,
   }

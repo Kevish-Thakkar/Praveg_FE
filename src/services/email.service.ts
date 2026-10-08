@@ -57,14 +57,14 @@ function nameFor(email: string): string {
  * Prototype stand-in for the incoming mail server: the recipient of a reply answers about a minute later.
  * Production: an IMAP poller / inbound webhook writes received mail into the thread.
  */
-function simulateReply(to: EmailRecord) {
+export function simulateReply(to: EmailRecord, message = "Thank you for your email — noted. I will come back to you with the details shortly.") {
   const from = to.to[0]
   if (!from) return
   const name = nameFor(from)
   db.emails.unshift({
     id: newId("eml"), kind: to.kind, projectId: to.projectId, direction: "Inbound", threadId: threadOf(to), inReplyTo: to.id, from, read: false,
     subject: `Re: ${baseSubject(to.subject)}`, to: [senderAddress()], cc: [], bcc: [],
-    body: `Dear Praveg team,\n\nThank you for your email — noted. I will come back to you with the details shortly.\n\nRegards,\n${name === from ? "" : name}`.trimEnd(),
+    body: `Dear Praveg team,\n\n${message}\n\nRegards,\n${name === from ? "" : name}`.trimEnd(),
     attachmentIds: [], templateId: null, sentById: "external", sentAt: new Date(Date.now() + 45_000).toISOString(), status: "Scheduled", automatic: false,
   })
 }

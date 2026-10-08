@@ -100,6 +100,35 @@ export const ProjectCheckpoint = memo(function ProjectCheckpoint({ checkpoint: c
   )
 })
 
+/** Compact trail where every node is a button that opens that step; the step being viewed is ringed. */
+export const CheckpointJumper = memo(function CheckpointJumper({ list, activeId, onSelect, className }: { list: Checkpoint[]; activeId: string; onSelect: (c: Checkpoint) => void; className?: string }) {
+  return (
+    <ol aria-label="Go to step" className={cn("flex items-center", className)}>
+      {list.map((c, k) => {
+        const active = c.id === activeId
+        return (
+          <li key={c.id} className="flex items-center">
+            <button
+              type="button"
+              onClick={() => !active && onSelect(c)}
+              aria-current={active ? "step" : undefined}
+              aria-label={`Step ${k + 1}: ${c.title} — ${statusText(c)}${active ? " (viewing)" : ""}`}
+              title={`${c.title}: ${statusText(c)}`}
+              className={cn(
+                "group rounded-full p-1 transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                active ? "cursor-default ring-2 ring-primary-strong" : "hover:bg-primary-light",
+              )}
+            >
+              <CheckpointNode status={c.status} progress={c.progress} number={k + 1} size="sm" className={cn(!active && "group-hover:scale-110")} />
+            </button>
+            {k < list.length - 1 && <span aria-hidden className={cn("h-0.5 w-3 sm:w-5", c.status === "completed" ? "bg-primary-dark" : "border-t-2 border-dotted border-input")} />}
+          </li>
+        )
+      })}
+    </ol>
+  )
+})
+
 /**
  * Compact checkpoint trail for listings: small nodes + the current step and its status.
  * Details live in the overlay — pass onOpen to make the trail a button that opens it.

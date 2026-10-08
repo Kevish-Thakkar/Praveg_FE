@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
-import { CalendarCheck2, FileCheck2, Mail, Send } from "@/components/icons"
+import { CalendarCheck2, CircleCheck, FileCheck2, Mail, Send } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -23,7 +23,10 @@ import { useEmails, useSendEmail } from "@/features/emails/hooks"
 import { PresetComposer } from "@/features/emails/components/PresetComposer"
 import { EmailList } from "@/features/emails/components/EmailList"
 import { useProjects, useSendCompletion } from "@/features/projects/hooks"
+import { ClientCommentDialog } from "@/features/projects/components/workflow/ClientCommentDialog"
+import { closureState, revisedReportReady, type ClosureState } from "@/lib/workflow"
 import type { ProjectRow } from "@/services"
+import type { Tone } from "@/constants/status"
 
 /** Out documents: reports and documents going to the client for jobs that have been carried out. */
 export function OutDocumentsPage() {
@@ -61,7 +64,7 @@ export function OutDocumentsPage() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">{p.title}</span>
                       <span className="block truncate text-xs text-muted-foreground">{p.code} · {p.clientName}</span>
-                      <span className="mt-1 block"><StatusBadge status={p.stage === "Completed" ? "Sent to client" : p.completion.reportUploadedAt ? "Report received" : "Report awaited"} tone={p.stage === "Completed" ? "success" : p.completion.reportUploadedAt ? "info" : "warning"} /></span>
+                      <span className="mt-1 block"><ClosureBadge p={p} /></span>
                     </span>
                   </button>
                 </li>
@@ -82,6 +85,20 @@ export function OutDocumentsPage() {
   )
 }
 
+function ClosureBadge({ p }: { p: ProjectRow }) {
+  const state = closureState(p)
+  const badges: Record<ClosureState, [string, Tone]> = {
+    closed: ["Completed", "success"],
+    awaitingComment: p.clientReplies ? ["Client replied", "warning"] : ["Awaiting client comment", "violet"],
+    changesRequested: ["Changes requested", "warning"],
+    readyToSend: ["Report received", "info"],
+    reportAwaited: ["Report awaited", "warning"],
+    notDone: ["Job in progress", "neutral"],
+  }
+  const [status, tone] = badges[state]
+  return <StatusBadge status={status} tone={tone} />
+}
+
 function OutDocumentDetail({ p }: { p: ProjectRow }) {
   const [composer, setComposer] = useState<"completion" | "general" | null>(null)
   const canEmail = usePermission("outDocuments", "create")
@@ -89,7 +106,9 @@ function OutDocumentDetail({ p }: { p: ProjectRow }) {
   const send = useSendEmail()
   const complete = useSendCompletion()
   const outEmails = (emails.data ?? []).filter((e) => e.kind === "Completion" || e.kind === "General" || e.kind === "Report Request")
-  const canComplete = !!p.completion.reportUploadedAt && p.stage !== "Completed"
+  const [comment, setComment] = useState(false)
+  const state = closureState(p)
+  const canSend = state === "readyToSend" || (state === "changesRequested" && revisedReportReady(p.completion))
 
   return (
     <div className="min-w-0 space-y-4">
@@ -100,10 +119,21 @@ function OutDocumentDetail({ p }: { p: ProjectRow }) {
             <p className="font-semibold">{p.title}</p>
             <p className="text-sm text-muted-foreground"><TextLink to={`/projects/${p.id}`}>{p.code}</TextLink> · {p.clientName} · {p.site.city} · {p.assignedInspectorName}</p>
           </div>
-          {canEmail && (canComplete
-            ? <Button onClick={() => setComposer("completion")} className="shrink-0"><Send /> Send completion email</Button>
-            : <Button variant="outline" onClick={() => setComposer("general")} className="shrink-0"><Mail /> Send documents</Button>)}
+          {canEmail && (
+            <div className="flex shrink-0 flex-wrap gap-2">
+              {canSend && <Button onClick={() => setComposer("completion")}><Send /> {state === "changesRequested" ? "Send revised report" : "Send report to client"}</Button>}
+              {state === "awaitingComment" && !p.locked && <Button onClick={() => setComment(true)}><CircleCheck /> {p.clientReplies ? "Review comment & complete" : "Record comment & complete"}</Button>}
+              {!canSend && <Button variant="outline" onClick={() => setComposer("general")}><Mail /> Send documents</Button>}
+            </div>
+          )}
         </CardContent>
+        {(state === "awaitingComment" || state === "changesRequested") && (
+          <p className={cn("mx-6 mb-1 rounded-md px-3 py-2 text-xs", state === "changesRequested" ? "bg-warning-soft text-warning" : "bg-info-soft text-info")}>
+            {state === "changesRequested"
+              ? revisedReportReady(p.completion) ? "The client asked for changes. The revised report is uploaded — send it to the client." : "The client asked for changes. Upload the revised report below, then send it again."
+              : p.clientReplies ? "The client has replied. Review the comment to complete the job." : `Report sent ${formatDate(p.completion.completionEmailSentAt)}. The job is completed once the client's comment is recorded.`}
+          </p>
+        )}
       </Card>
       <Tabs defaultValue="docs">
         <TabsList className="bg-card">
@@ -123,9 +153,10 @@ function OutDocumentDetail({ p }: { p: ProjectRow }) {
       </Tabs>
       <PresetComposer
         open={composer === "completion"} onOpenChange={(o) => !o && setComposer(null)} projectId={p.id} kind="Completion"
-        title="Send completion email" description="Sending marks the project Completed and notifies Accounts." sendLabel="Send & complete"
+        title={state === "changesRequested" ? "Send revised report to client" : "Send report to client"} description="The job is completed once the client's comment on the report is recorded." sendLabel="Send to client"
         sending={complete.isPending} onSend={(email) => complete.mutate({ projectId: p.id, email }, { onSuccess: () => setComposer(null) })}
       />
+      {comment && <ClientCommentDialog p={p} mode="complete" onClose={() => setComment(false)} />}
       <PresetComposer
         open={composer === "general"} onOpenChange={(o) => !o && setComposer(null)} projectId={p.id} kind="General"
         title="Send documents to client" description={`${p.code} · ${p.clientName}`}

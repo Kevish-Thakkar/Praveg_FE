@@ -1,10 +1,17 @@
 import { useQuery } from "@tanstack/react-query"
 import { qk, useAppMutation, WORKFLOW_KEYS } from "@/lib/query"
-import { projectService, type EmailDraft, type FileMeta, type ProjectInput } from "@/services"
+import { projectService, type ClientCommentInput, type EmailDraft, type FileMeta, type ProjectInput, type ProjectRow } from "@/services"
+import { closureState } from "@/lib/workflow"
 import type { Address, ClientPricing, EmailKind } from "@/types/domain"
 
-export const useProjects = () => useQuery({ queryKey: [...qk.projects, "list"], queryFn: projectService.list })
-export const useProject = (id: string) => useQuery({ queryKey: [...qk.projects, id], queryFn: () => projectService.get(id), enabled: !!id })
+/** Polled while a report awaits the client's comment so simulated replies show up without a reload. */
+const REPLY_POLL_MS = 15_000
+const awaiting = (p: ProjectRow) => closureState(p) === "awaitingComment"
+
+export const useProjects = () =>
+  useQuery({ queryKey: [...qk.projects, "list"], queryFn: projectService.list, refetchInterval: (q) => (q.state.data?.some(awaiting) ? REPLY_POLL_MS : false) })
+export const useProject = (id: string) =>
+  useQuery({ queryKey: [...qk.projects, id], queryFn: () => projectService.get(id), enabled: !!id, refetchInterval: (q) => (q.state.data && awaiting(q.state.data) ? REPLY_POLL_MS : false) })
 export const useCandidates = (projectId: string) =>
   useQuery({ queryKey: [...qk.candidates, projectId], queryFn: () => projectService.candidates(projectId), enabled: !!projectId })
 export const useInspectorMatches = (input: { site: Address | null; skills: string[]; projectId?: string; includeOutside: boolean; query?: string }) =>
@@ -19,6 +26,8 @@ export const useEmailPreset = (projectId: string, kind: EmailKind | null, candid
     queryKey: [...qk.emails, "preset", projectId, kind, candidateIds],
     queryFn: () => projectService.emailPreset(projectId, kind!, candidateIds),
     enabled: !!projectId && !!kind,
+    // the composer takes its pre-selected attachments from the first data it gets, so never serve a cached preset
+    gcTime: 0,
   })
 
 const W = WORKFLOW_KEYS
@@ -99,5 +108,17 @@ export const useSendCompletion = () =>
   useAppMutation({
     mutationFn: ({ projectId, email }: { projectId: string; email: EmailDraft }) => projectService.sendCompletion(projectId, email),
     invalidate: W,
-    success: "Completion email sent — project completed, Accounts notified",
+    success: "Report sent to client — awaiting the client's comment",
+  })
+export const useCompleteJob = () =>
+  useAppMutation({
+    mutationFn: ({ projectId, comment }: { projectId: string; comment: ClientCommentInput }) => projectService.completeJob(projectId, comment),
+    invalidate: W,
+    success: "Client comment saved — job completed, Accounts notified",
+  })
+export const useRequestReportChanges = () =>
+  useAppMutation({
+    mutationFn: ({ projectId, comment }: { projectId: string; comment: ClientCommentInput }) => projectService.requestReportChanges(projectId, comment),
+    invalidate: W,
+    success: "Changes requested — upload the revised report and send it again",
   })

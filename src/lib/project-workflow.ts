@@ -11,6 +11,7 @@
 import { addDays, differenceInCalendarDays, parseISO } from "date-fns"
 import { formatDate, todayISO, toISODate } from "@/lib/dates"
 import { formatMoney } from "@/lib/format"
+import { closedAt, closureState, pendingChangeRequest, revisedReportReady } from "@/lib/workflow"
 import type { Role } from "@/types/domain"
 import type { ProjectRow } from "@/services"
 import type { CandidateRow } from "@/features/projects/components/workflow/types"
@@ -23,7 +24,7 @@ export type CheckpointActionKey =
   | "editProject" | "requestAvailability" | "recordReplies" | "requestPrice" | "setPrice" | "sendCvs"
   | "recordDecision" | "interviewPassed" | "interviewFailed" | "assignInspector"
   | "scheduleJob" | "sendReminder" | "markJobDone" | "scheduleVisit" | "recordPO"
-  | "uploadReport" | "sendCompletion" | "sendDocuments"
+  | "uploadReport" | "sendCompletion" | "completeJob" | "requestChanges" | "sendDocuments"
   | "uploadInvoice" | "sendPaymentReminder" | "sendPaymentFollowUp" | "confirmPayment"
 
 export interface SubStep {
@@ -88,6 +89,7 @@ const d = (iso: string | null | undefined) => (iso ? formatDate(iso.slice(0, 10)
 const days = (iso: string) => differenceInCalendarDays(parseISO(iso.slice(0, 10)), parseISO(todayISO()))
 const min = (xs: (string | null | undefined)[]) => xs.filter(Boolean).sort()[0] ?? null
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`
+const clip = (s: string, n = 80) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
 function progressOf(subs: SubStep[], status: CheckpointStatus) {
   if (status === "completed") return 100
@@ -241,27 +243,41 @@ export function operationsTrack({ p, candidates = [], pos = [], visits = [] }: W
 
   /* 5 — Report & completion */
   const reportDue = c.jobDoneAt ? toISODate(addDays(parseISO(c.jobDoneAt), 1)) : null
-  const closureStatus: CheckpointStatus = p.stage === "Completed" ? "completed" : c.jobDoneAt ? "in_progress" : "not_started"
+  const closureAt = closedAt(p)
+  const state = closureState(p)
+  const change = pendingChangeRequest(c)
+  const revisedReady = revisedReportReady(c)
+  const comment = c.clientComment
+  const closureStatus: CheckpointStatus = state === "closed" ? "completed" : state === "notDone" ? "not_started" : "in_progress"
   const closure = cp({
     id: "closure", track: "operations", title: "Report & completion",
-    description: "The report request goes to the inspector automatically the morning after the job. Once the report is uploaded, the completion email with documents goes to the client and the project closes.",
+    description: "The report request goes to the inspector automatically the morning after the job. Once the report is uploaded it goes to the client with the documents. The job is completed when the client's comment on the report is recorded — or, if the client asks for changes, after the revised report is sent and accepted.",
     status: closureStatus,
-    statusNote: p.stage === "Completed" ? `Completion mail sent ${d(c.completionEmailSentAt)}` : c.reportUploadedAt ? "Report received — send to client" : c.jobDoneAt ? "Report awaited from inspector" : "Starts when the job is done",
-    owner: "Coordinator", ownerName: p.coordinatorName,
-    startDate: c.jobDoneAt, dueDate: reportDue && !c.reportUploadedAt ? { label: "Report due", date: reportDue } : null, completedAt: c.completionEmailSentAt,
+    statusNote: {
+      closed: comment ? `Completed ${d(closureAt)} · client commented` : `Completed ${d(closureAt)}`,
+      changesRequested: revisedReady ? "Revised report ready — send to client" : "Client asked for changes — upload revised report",
+      awaitingComment: p.clientReplies ? "Client replied — review comment & complete" : `Report sent ${d(c.completionEmailSentAt)} — awaiting client comment`,
+      readyToSend: "Report received — send to client",
+      reportAwaited: "Report awaited from inspector",
+      notDone: "Starts when the job is done",
+    }[state],
+    owner: state === "awaitingComment" && !p.clientReplies ? "Client" : "Coordinator", ownerName: state === "awaitingComment" && !p.clientReplies ? p.clientName : p.coordinatorName,
+    startDate: c.jobDoneAt, dueDate: reportDue && !c.reportUploadedAt ? { label: "Report due", date: reportDue } : null, completedAt: closureAt,
     dependencies: ["execution"], blockedReason: null,
     substeps: [
       { id: "request", label: "Report requested (automatic)", status: c.jobDoneAt ? "done" : "pending", note: c.jobDoneAt ? "Next morning 09:00" : undefined },
-      { id: "report", label: "Report uploaded", status: c.reportUploadedAt ? "done" : "pending", at: c.reportUploadedAt },
-      { id: "mail", label: "Completion email & documents to client", status: c.completionEmailSentAt ? "done" : "pending", at: c.completionEmailSentAt },
-      { id: "closed", label: "Project closed", status: p.stage === "Completed" ? "done" : "pending" },
+      { id: "report", label: change ? "Revised report uploaded" : "Report uploaded", status: c.reportUploadedAt && revisedReady ? "done" : "pending", at: revisedReady ? c.reportUploadedAt : null, note: change ? `Client: “${clip(change.text)}”` : undefined },
+      { id: "mail", label: change ? "Revised report sent to client" : "Report & documents sent to client", status: c.completionEmailSentAt && !change ? "done" : "pending", at: change ? null : c.completionEmailSentAt, note: c.changeRequests?.length && !change ? `Revision ${c.changeRequests.length}` : undefined },
+      { id: "comment", label: "Client comment on the report", status: comment ? "done" : state === "closed" ? "skipped" : "pending", at: comment?.at, note: comment ? `${comment.source === "Email" ? "By email" : "Recorded manually"}: “${clip(comment.text)}”` : state === "closed" ? "Closed before client comments were recorded" : state === "awaitingComment" && p.clientReplies ? "Reply received — review it" : undefined },
+      { id: "closed", label: "Job completed", status: state === "closed" ? "done" : "pending", at: closureAt },
     ],
     actions: [
-      ...(c.reportUploadedAt && p.stage !== "Completed" ? ["sendCompletion" as const] : []),
-      ...(c.jobDoneAt && p.stage !== "Completed" ? ["uploadReport" as const] : []),
+      ...(state === "awaitingComment" ? (["completeJob", "requestChanges"] as const) : []),
+      ...(state === "readyToSend" || (state === "changesRequested" && revisedReady) ? ["sendCompletion" as const] : []),
+      ...(c.jobDoneAt && state !== "closed" && state !== "awaitingComment" ? ["uploadReport" as const] : []),
       ...(c.jobDoneAt ? ["sendDocuments" as const] : []),
     ],
-    activity: /Report|Completion email/i,
+    activity: /Report|Completion email|Client comment/i,
   })
 
   return finalise([requirement, sourcing, onboarding, execution, closure], cancelled, p.cancelledReason, p.insight.next.owner)
@@ -322,20 +338,22 @@ export function financeTrack({ p, candidates = [], pos = [] }: WorkflowInput): C
 
   /* F3 — Job completion (hand-off from operations) */
   const c = p.completion
+  const jobClosed = closedAt(p)
   const job = cp({
     id: "job", track: "finance", title: "Job completion",
-    description: "Run by the coordinator. Invoicing starts once the completion email has gone to the client.",
+    description: "Run by the coordinator. Invoicing starts once the report has gone to the client and the client's comment is recorded.",
     status: p.stage === "Completed" ? "completed" : p.assignedInspectorId ? "in_progress" : "not_started",
-    statusNote: p.stage === "Completed" ? `Completed ${d(c.completionEmailSentAt)}` : c.jobDoneAt ? "Job done · report pending" : p.schedule ? `Job ${d(p.schedule.dates[0])}` : p.assignedInspectorId ? "Inspector assigned" : `Job at ${p.stage}`,
-    owner: "Coordinator", ownerName: p.coordinatorName, startDate: null, dueDate: p.stage !== "Completed" ? { label: "Needed by", date: p.requiredBy } : null, completedAt: c.completionEmailSentAt,
+    statusNote: p.stage === "Completed" ? `Completed ${d(jobClosed)}` : c.completionEmailSentAt ? "Report with client · awaiting comment" : c.jobDoneAt ? "Job done · report pending" : p.schedule ? `Job ${d(p.schedule.dates[0])}` : p.assignedInspectorId ? "Inspector assigned" : `Job at ${p.stage}`,
+    owner: "Coordinator", ownerName: p.coordinatorName, startDate: null, dueDate: p.stage !== "Completed" ? { label: "Needed by", date: p.requiredBy } : null, completedAt: jobClosed,
     dependencies: ["execution", "closure"], blockedReason: null,
     substeps: [
       { id: "assigned", label: "Inspector assigned", status: p.assignedInspectorId ? "done" : "pending", note: p.assignedInspectorName ?? undefined },
       { id: "done", label: "Job done", status: c.jobDoneAt ? "done" : "pending", at: c.jobDoneAt },
-      { id: "mail", label: "Completion email sent to client", status: c.completionEmailSentAt ? "done" : "pending", at: c.completionEmailSentAt },
+      { id: "mail", label: "Report sent to client", status: c.completionEmailSentAt ? "done" : "pending", at: c.completionEmailSentAt },
+      { id: "comment", label: "Client comment recorded · job completed", status: p.stage === "Completed" ? "done" : "pending", at: jobClosed },
     ],
     actions: [],
-    activity: /Assigned |Job done|Completion email/i,
+    activity: /Assigned |Job done|Completion email|Client comment/i,
   })
 
   /* F4 — Invoicing */
@@ -344,10 +362,10 @@ export function financeTrack({ p, candidates = [], pos = [] }: WorkflowInput): C
     description: "Create the invoice in the accounting system, then record it here with the file. The payment due date follows the client's payment terms.",
     status: inv ? "completed" : b.status === "Invoice Pending" ? "in_progress" : "not_started",
     statusNote: inv ? `${inv.number} · ${formatMoney(inv.total, inv.currency)}` : b.status === "Invoice Pending" ? "Ready to invoice" : "Starts after completion",
-    owner: "Accounts", startDate: c.completionEmailSentAt, dueDate: null, completedAt: inv?.date ?? null,
+    owner: "Accounts", startDate: jobClosed, dueDate: null, completedAt: inv?.date ?? null,
     dependencies: ["job"], blockedReason: null,
     substeps: [
-      { id: "ready", label: "Ready to invoice", status: c.completionEmailSentAt ? "done" : "pending", at: c.completionEmailSentAt },
+      { id: "ready", label: "Ready to invoice", status: jobClosed ? "done" : "pending", at: jobClosed },
       { id: "uploaded", label: "Invoice uploaded", status: inv ? "done" : "pending", at: inv?.date, note: inv?.number },
       { id: "due", label: "Payment due date set", status: inv ? "done" : "pending", note: inv ? `Due ${d(inv.dueDate)}` : undefined },
     ],

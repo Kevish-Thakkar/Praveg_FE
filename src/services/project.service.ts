@@ -1,15 +1,15 @@
 import { db, newId } from "@/mock/db"
 import { distanceKm, formatAddress } from "@/constants/geo"
-import { describeBilling, describeProject, pricingTotal, STAGES, type BillingInsight, type ProjectInsight } from "@/lib/workflow"
+import { closureState, describeBilling, describeProject, pricingTotal, revisedReportReady, STAGES, type BillingInsight, type ProjectInsight } from "@/lib/workflow"
 import { useSessionStore } from "@/store/session.store"
 import { renderTemplate, type MergeContext } from "@/lib/email-merge"
 import { formatDate, toISODate } from "@/lib/dates"
 import { formatMoney } from "@/lib/format"
 import { currentUserId } from "@/store/session.store"
-import type { Address, Candidate, ClientPricing, EmailKind, Inspector, Project, ProjectStage, Role } from "@/types/domain"
+import type { Address, Candidate, ClientComment, ClientPricing, EmailKind, Inspector, Project, ProjectStage, Role } from "@/types/domain"
 import { ApiError, notFound, request } from "./api"
 import { logActivity } from "./activity.service"
-import { recordEmail, scheduleEmail, type EmailDraft } from "./email.service"
+import { recordEmail, scheduleEmail, simulateReply, type EmailDraft } from "./email.service"
 import { scheduleAt } from "./scheduler"
 import type { FileMeta } from "./party.service"
 
@@ -35,6 +35,14 @@ export interface ProjectRow extends Project {
   billingInsight: BillingInsight
   /** Coordinators can't change a project once it is Completed */
   locked: boolean
+  /** client replies received in the completion thread since the report was last sent */
+  clientReplies: number
+}
+
+function clientRepliesSince(p: Project) {
+  const sent = p.completion.completionEmailSentAt
+  if (!sent || p.stage === "Completed") return 0
+  return db.emails.filter((e) => e.projectId === p.id && e.kind === "Completion" && e.direction === "Inbound" && e.status === "Received" && e.sentAt > sent).length
 }
 
 function nearby(site: Address, skills: string[], radius = db.settings.nearbyRadiusKm) {
@@ -49,6 +57,7 @@ export function toProjectRow(p: Project): ProjectRow {
   const role = useSessionStore.getState().user?.role
   const client = db.clients.find((c) => c.id === p.clientId)
   const contact = client?.contacts.find((c) => c.recipientRole === "To") ?? client?.contacts[0]
+  const clientReplies = clientRepliesSince(p)
   return {
     ...p,
     clientName: client?.name ?? "—",
@@ -63,9 +72,10 @@ export function toProjectRow(p: Project): ProjectRow {
     availableCount: cands.filter((c) => c.availability === "Available").length,
     nearbyCount,
     priceTotal: pricingTotal(p),
-    insight: describeProject(p, cands, nearbyCount, assignedName, { hideAccounts: role === "Coordinator" }),
+    insight: describeProject(p, cands, nearbyCount, assignedName, { hideAccounts: role === "Coordinator", clientReplies }),
     billingInsight: describeBilling(p, STAGES.find((x) => x.stage === p.stage)?.short ?? p.stage),
     locked: p.stage === "Cancelled" || (p.stage === "Completed" && role === "Coordinator"),
+    clientReplies,
   }
 }
 
@@ -184,7 +194,10 @@ function preset(projectId: string, kind: EmailKind, candidateIds: string[] = [])
   const tpl = db.emailTemplates.find((t) => t.kind === kind)
   // what this kind of email normally carries (pre-selected)
   const suggestedDocs = kind === "CVs to Client" ? [...cvs, ...projectDocs.filter((d) => d.category === "Technical Document")] : kind.startsWith("Payment") ? invoiceDocs : projectDocs
-  const attachmentIds = kind === "CVs to Client" ? cvs.map((d) => d.id) : kind === "Completion" ? projectDocs.filter((d) => d.category === "Report" || d.category === "Out Document").map((d) => d.id) : kind.startsWith("Payment") ? invoiceDocs.map((d) => d.id) : []
+  // a resend after "changes requested" carries only what was uploaded since the request
+  const revisedSince = p.completion.changeRequests?.at(-1)?.recordedAt ?? ""
+  const completionDocs = projectDocs.filter((d) => (d.category === "Report" || d.category === "Out Document") && d.uploadedAt > revisedSince)
+  const attachmentIds = kind === "CVs to Client" ? cvs.map((d) => d.id) : kind === "Completion" ? completionDocs.map((d) => d.id) : kind.startsWith("Payment") ? invoiceDocs.map((d) => d.id) : []
   // everything else that can be attached
   const inspectorCvs = db.documents.filter((d) => (d.category === "CV" || d.category === "Certificate") && d.entityType === "Inspector" && projectInspectorIds.has(d.entityId))
   const clientDocs = db.documents.filter((d) => d.entityType === "Client" && d.entityId === p.clientId)
@@ -496,18 +509,61 @@ export const projectService = {
       logActivity("Document", p.id, p.id, `Report uploaded (${files.length} file(s))`)
       return toProjectRow(p)
     }, { mutate: true }),
+  /** Report & documents to the client. The job stays open until the client's comment is recorded. */
   sendCompletion: (projectId: string, email: EmailDraft) =>
     request(() => {
       const p = getProject(projectId)
-      if (!p.completion.reportUploadedAt) throw new ApiError("Upload the report first", 409)
-      recordEmail(email)
-      p.completion.completionEmailSentAt = new Date().toISOString()
+      const c = p.completion
+      if (p.stage === "Completed") throw new ApiError("This job is already completed", 409)
+      if (!c.reportUploadedAt) throw new ApiError("Upload the report first", 409)
+      if (!revisedReportReady(c)) throw new ApiError("Upload the revised report first — the client asked for changes", 409)
+      const resend = !!c.completionEmailSentAt
+      const rec = recordEmail(email)
+      c.completionEmailSentAt = rec.sentAt
+      simulateReply(rec, CLIENT_REPLY)
+      logActivity("Project", p.id, p.id, `Completion email sent${resend ? " (revised report)" : ""} — awaiting client comment`)
+      return toProjectRow(p)
+    }, { mutate: true }),
+  /** Client's comment accepts the report: the job is completed and Accounts can invoice. */
+  completeJob: (projectId: string, input: ClientCommentInput) =>
+    request(() => {
+      const p = getProject(projectId)
+      if (closureState(p) !== "awaitingComment") throw new ApiError("Send the report to the client first", 409)
+      const comment = toComment(input)
+      p.completion.clientComment = comment
+      p.completion.closedAt = comment.recordedAt
       setStage(p, "Completed")
       p.billing.status = "Invoice Pending"
       notify(`Job completed — invoice pending`, `${p.code} ${p.title} is ready to invoice.`, "/finance", ["Accountant", "Super Admin"], "Finance")
-      logActivity("Project", p.id, p.id, `Completion email sent — ${p.code} completed`)
+      logActivity("Project", p.id, p.id, `Client comment recorded — ${p.code} completed`)
       return toProjectRow(p)
     }, { mutate: true }),
+  /** Client's comment asks for report changes: upload a revised report and send it again. */
+  requestReportChanges: (projectId: string, input: ClientCommentInput) =>
+    request(() => {
+      const p = getProject(projectId)
+      if (closureState(p) !== "awaitingComment") throw new ApiError("Send the report to the client first", 409)
+      p.completion.changeRequests = [...(p.completion.changeRequests ?? []), toComment(input)]
+      logActivity("Project", p.id, p.id, "Client comment: report changes requested")
+      return toProjectRow(p)
+    }, { mutate: true }),
+}
+
+export interface ClientCommentInput {
+  text: string
+  /** when the client gave it (defaults to now) */
+  at?: string
+  /** the reply email it came from; omitted when typed in manually */
+  emailId?: string | null
+}
+
+const CLIENT_REPLY = "Thank you for sharing the report and documents. We have reviewed them and have no further comments — please go ahead and close the job."
+
+function toComment(input: ClientCommentInput): ClientComment {
+  const text = input.text.trim()
+  if (!text) throw new ApiError("Enter the client's comment", 422)
+  const now = new Date().toISOString()
+  return { text, at: input.at ?? now, recordedAt: now, source: input.emailId ? "Email" : "Manual", emailId: input.emailId ?? null, recordedById: currentUserId() }
 }
 
 export { formatAddress }

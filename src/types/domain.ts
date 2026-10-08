@@ -177,10 +177,29 @@ export interface Schedule {
   remindersSent: ISODateTime[];
 }
 
+export interface ClientComment {
+  text: string;
+  /** when the client gave the comment */
+  at: ISODateTime;
+  /** when it was saved here — ordering against completionEmailSentAt uses this */
+  recordedAt: ISODateTime;
+  /** a reply in the completion email thread, or typed in by the coordinator (phone, WhatsApp, other mail) */
+  source: "Email" | "Manual";
+  emailId: ID | null;
+  recordedById: ID;
+}
+
 export interface Completion {
   jobDoneAt: ISODateTime | null;
   reportUploadedAt: ISODateTime | null;
+  /** latest time the report / completion email went to the client */
   completionEmailSentAt: ISODateTime | null;
+  /** the client's comment on the report; the job closes with it */
+  clientComment?: ClientComment | null;
+  /** client comments that asked for report changes, oldest first */
+  changeRequests?: ClientComment[];
+  /** job completed (after the client's comment); older records fall back to completionEmailSentAt */
+  closedAt?: ISODateTime | null;
 }
 
 export type BillingStatus =
