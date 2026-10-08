@@ -13,13 +13,15 @@ import type { Integration } from "@/types/domain"
 import { useDisconnectIntegration, useIntegrations, useSaveIntegration, useTestIntegration } from "./hooks"
 
 const ICONS = { smtp: Mail, storage: Cloud, otp: MessageSquareText, maps: MapPinned }
+/** Not offered yet — remove an id to show its card again. */
+const HIDDEN: Integration["id"][] = ["storage", "otp"]
 
 /** §6.8 SMTP, §6.9 bucket storage, §4 OTP — mock connection states only (no real integration). */
 export function IntegrationsSettings() {
   const q = useIntegrations()
   if (q.isPending) return <Card><TableSkeleton rows={3} columns={2} /></Card>
   if (q.isError) return <Card><ErrorState message={q.error.message} onRetry={() => void q.refetch()} /></Card>
-  return <div className="grid gap-4 xl:grid-cols-2">{q.data.map((i) => <IntegrationCard key={`${i.id}-${JSON.stringify(i.config)}`} it={i} />)}</div>
+  return <div className="grid gap-4 xl:grid-cols-2">{q.data.filter((i) => !HIDDEN.includes(i.id)).map((i) => <IntegrationCard key={`${i.id}-${JSON.stringify(i.config)}`} it={i} />)}</div>
 }
 
 function IntegrationCard({ it }: { it: Integration }) {

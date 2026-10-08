@@ -44,7 +44,8 @@ export function OrganizationsSettings() {
   ], [canEdit])
   return (
     <Card className="gap-0 overflow-hidden py-0">
-      <div className="border-b p-4"><SectionHeader title="Organizations" description="Operating entities. Clients, vendors, inspectors and users belong to an organization." actions={canEdit && <Button size="sm" onClick={() => open("new")}><Plus /> Add organization</Button>} /></div>
+      <div className="border-b p-4"><SectionHeader title="Organizations" description="Operating entities. Clients, vendors, inspectors and users belong to an organization." actions={false && <Button size="sm" onClick={() => open("new")}><Plus /> Add organization</Button>} /></div>
+      {/* <div className="border-b p-4"><SectionHeader title="Organizations" description="Operating entities. Clients, vendors, inspectors and users belong to an organization." actions={canEdit && <Button size="sm" onClick={() => open("new")}><Plus /> Add organization</Button>} /></div> */}
       {q.isError ? <ErrorState message={q.error.message} onRetry={() => void q.refetch()} /> : <DataTable rows={q.data ?? []} columns={columns} getRowId={(o) => o.id} loading={q.isPending} caption="Organizations" empty={null} />}
       {!canEdit && <p className="border-t px-4 py-3 text-xs text-muted-foreground">Only Super Admins can add or edit organizations.</p>}
       <FormDialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)} title={editing === "new" ? "Add organization" : "Edit organization"} formId="org-form" loading={save.isPending}>

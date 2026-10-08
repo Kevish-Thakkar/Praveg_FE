@@ -34,7 +34,8 @@ export function CurrenciesSettings() {
   const form = useForm<V>({ resolver: zodResolver(schema), defaultValues: { code: "", name: "", symbol: "" } })
   return (
     <Card className="gap-0 overflow-hidden py-0">
-      <div className="border-b p-4"><SectionHeader title="Currencies" description="Used by clients, inspector rates, quotations, POs and invoices." actions={canEdit && <Button size="sm" onClick={() => { form.reset(); setOpen(true) }}><Plus /> Add currency</Button>} /></div>
+      <div className="border-b p-4"><SectionHeader title="Currencies" description="Used by clients, inspector rates, quotations, POs and invoices." actions={false && <Button size="sm" onClick={() => { form.reset(); setOpen(true) }}><Plus /> Add currency</Button>} /></div>
+      {/* <div className="border-b p-4"><SectionHeader title="Currencies" description="Used by clients, inspector rates, quotations, POs and invoices." actions={canEdit && <Button size="sm" onClick={() => { form.reset(); setOpen(true) }}><Plus /> Add currency</Button>} /></div> */}
       {q.isPending ? <TableSkeleton rows={4} columns={3} /> : q.isError ? <ErrorState message={q.error.message} onRetry={() => void q.refetch()} /> : (
         <ul className="divide-y">
           {q.data.map((c) => (
