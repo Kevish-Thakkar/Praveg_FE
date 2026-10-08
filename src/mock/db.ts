@@ -70,6 +70,8 @@ function load(): Database {
       const saved = JSON.parse(raw) as Database
       // data saved before the mailbox existed has no inbound mail — add the sample replies
       if (!saved.emails.some((e) => e.direction === "Inbound")) saved.emails.push(...structuredClone(c.inboundEmails))
+      // data saved before the "Other" service existed
+      if (!saved.projectTypes.some((t) => t.id === "pt_other")) saved.projectTypes.push(...structuredClone(m.projectTypes.filter((t) => t.id === "pt_other")))
       return saved
     }
   } catch {

@@ -6,7 +6,7 @@ import { renderTemplate, type MergeContext } from "@/lib/email-merge"
 import { formatDate, toISODate } from "@/lib/dates"
 import { formatMoney } from "@/lib/format"
 import { currentUserId } from "@/store/session.store"
-import type { Address, Candidate, ClientComment, ClientPricing, EmailKind, Inspector, Project, ProjectStage, Role } from "@/types/domain"
+import type { Address, Candidate, ClientComment, ClientPricing, EmailKind, InspectionCategory, Inspector, Project, ProjectStage, Role } from "@/types/domain"
 import { ApiError, notFound, request } from "./api"
 import { logActivity } from "./activity.service"
 import { recordEmail, scheduleEmail, simulateReply, type EmailDraft } from "./email.service"
@@ -23,7 +23,7 @@ export interface ProjectRow extends Project {
   /** names of the vendors on this job, in the order chosen */
   vendorNames: string[]
   serviceName: string
-  category: "Inspection" | "Testing"
+  category: InspectionCategory
   coordinatorName: string
   assignedInspectorName: string | null
   candidateCount: number

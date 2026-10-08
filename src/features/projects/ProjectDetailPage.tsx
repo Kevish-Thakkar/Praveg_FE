@@ -193,7 +193,7 @@ function ProjectWorkspace({ p, candidates }: { p: ProjectRow; candidates: Candid
                 <DescriptionList columns={1} className="gap-y-3" items={[
                   { label: "Client", value: <><Link to={`/clients/${p.clientId}`} className="text-primary-text hover:underline">{p.clientName}</Link>{p.clientContactName && <span className="block text-xs text-muted-foreground">{p.clientContactName}</span>}</> },
                   { label: p.vendorNames.length > 1 ? "Vendors" : "Vendor", value: p.vendorNames.length ? p.vendorNames.join(", ") : "—" },
-                  { label: "Service", value: `${p.serviceName} (${p.category})` },
+                  { label: "Service", value: p.serviceName === p.category ? p.serviceName : `${p.serviceName} (${p.category})` },
                   { label: "Site", value: formatAddress(p.site) },
                 ]} />
                 {p.requiredSkills.length > 0 && <div className="flex flex-wrap gap-1.5">{p.requiredSkills.map((s) => <Badge key={s} variant="secondary" className="border-primary-strong/20 bg-primary-light font-normal text-primary-dark">{s}</Badge>)}</div>}

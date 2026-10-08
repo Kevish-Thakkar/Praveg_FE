@@ -29,6 +29,7 @@ export const projectTypes: ProjectType[] = [
   { id: "pt_fat", name: "Factory Acceptance Test", category: "Testing", description: "Witness of performance and functional tests at works." },
   { id: "pt_ndt", name: "NDT Testing", category: "Testing", description: "UT / RT / MT / PT examination and reporting." },
   { id: "pt_mt", name: "Material Testing", category: "Testing", description: "Mechanical and chemical testing witness." },
+  { id: "pt_other", name: "Other", category: "Other", description: "Any other service the client asks for — describe it in the project description." },
 ]
 
 export const SKILLS = [

@@ -67,7 +67,7 @@ export interface Currency {
   isBase: boolean;
 }
 
-export type InspectionCategory = "Inspection" | "Testing";
+export type InspectionCategory = "Inspection" | "Testing" | "Other";
 
 /** A service the client can ask for ("Services" in Settings). */
 export interface ProjectType {
